@@ -1,73 +1,118 @@
-# Welcome to your Lovable project
+# DealSplit Marketplace
 
-## Project info
+A responsive marketplace landing page for splitting multi-item deals (BOGO offers). Connect buyers to share savings on bulk purchases, food deals, and more.
 
-**URL**: https://lovable.dev/projects/64e4ec45-c599-4930-9edc-d905118697b5
+## 🎯 Features
 
-## How can I edit this code?
+- **Responsive Hero Section** with 3D model placeholder
+- **Live Map Integration** showing nearby deal requests  
+- **Real-time Matching** system interface
+- **Trust & Security** indicators with escrow protection
+- **Mobile-first Design** with teal/amber color scheme
 
-There are several ways of editing your application.
+## 🛠 Tech Integration Points
 
-**Use Lovable**
+### 3D Model Hero (`3D_MODEL_HERO`)
+**Location**: `src/components/HeroSection.tsx`
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/64e4ec45-c599-4930-9edc-d905118697b5) and start prompting.
+**Expected Integration**:
+```tsx
+// Recommended: react-three-fiber or <model-viewer>
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls, useGLTF } from '@react-three/drei'
 
-Changes made via Lovable will be committed automatically to this repo.
+// Props expected:
+{
+  modelPath: string,          // glTF/glb file path
+  autoRotate: boolean,        // true by default
+  allowExpand: boolean,       // click to expand functionality
+  fallbackImage: string      // static image for low-perf devices
+}
+```
 
-**Use your preferred IDE**
+**Features to implement**:
+- Slow auto-rotation animation
+- Click-to-expand modal
+- Draco compression support
+- Static fallback for `prefers-reduced-motion`
+- Lazy loading to prevent blocking
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Live Map (`LIVE_MAP_SECTION`) 
+**Location**: `src/components/LiveMapSection.tsx`
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+**Expected Integration**:
+```tsx
+// Recommended: Mapbox GL JS or Google Maps
+import Map, { Marker, Popup } from 'react-map-gl'
 
-Follow these steps:
+// Props expected:
+{
+  userLocation: { lat: number, lng: number },
+  requests: Array<{
+    id: string,
+    location: { lat: number, lng: number },
+    product: { title: string, image: string, price: string },
+    user: { name: string, rating: number },
+    distance: string,
+    eta: string
+  }>,
+  onMarkerClick: (requestId: string) => void,
+  onJoinRequest: (requestId: string) => void
+}
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+**Features to implement**:
+- User location with distinctive marker (pulse animation)
+- Product markers with thumbnail + price badge
+- Real-time updates via WebSocket/Socket.IO
+- Marker clustering for performance
+- Side panel/bottom sheet for mobile details
+- Filter controls integration
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 🎨 Design System
 
-# Step 3: Install the necessary dependencies.
-npm i
+### Colors (HSL format)
+- **Primary**: `hsl(180, 85%, 34%)` - Teal brand color
+- **Accent**: `hsl(31, 100%, 70%)` - Amber highlights  
+- **Foreground**: `hsl(220, 30%, 10%)` - Dark text
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Typography
+- **Font**: Inter (system fallback: system-ui, sans-serif)
+- **Weights**: 400 (regular), 600 (semibold), 800 (bold)
+
+### Components
+- **Button variants**: `hero`, `accent`, `outline` with hover animations
+- **Cards**: 8px border-radius with soft shadows
+- **Animations**: Smooth transitions with cubic-bezier easing
+
+## 🔒 Security Features
+
+- Escrow payment protection
+- User rating system
+- Digital receipt tracking
+- Safe meeting location suggestions
+
+## 🚀 Development
+
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## 📱 Responsive Breakpoints
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Mobile: < 768px
+- Tablet: 768px - 1024px  
+- Desktop: > 1024px
 
-**Use GitHub Codespaces**
+## 🌐 Real-time Requirements
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+**Suggested Stack**:
+- WebSocket/Socket.IO for live position updates
+- Stripe Payment Intents for escrow
+- Geolocation API with permission prompts
+- Push notifications for match alerts
 
-## What technologies are used for this project?
+---
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/64e4ec45-c599-4930-9edc-d905118697b5) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Built with React, TypeScript, Tailwind CSS, and shadcn/ui components.

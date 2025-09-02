@@ -1,5 +1,5 @@
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Float, Text3D, Center } from '@react-three/drei';
+import { OrbitControls, Float, Text } from '@react-three/drei';
 import { useRef } from 'react';
 import * as THREE from 'three';
 
@@ -46,18 +46,17 @@ const Scene3D = () => {
           </mesh>
         </Float>
         
-        {/* 50% text */}
+        {/* 50% text using Text component */}
         <Float speed={1} rotationIntensity={0.1} floatIntensity={0.2}>
-          <Center position={[0, 1.5, 0]}>
-            <Text3D
-              font="/fonts/helvetiker_regular.typeface.json"
-              size={0.5}
-              height={0.1}
-            >
-              50%
-              <meshStandardMaterial color="#8B5CF6" />
-            </Text3D>
-          </Center>
+          <Text
+            position={[0, 1.5, 0]}
+            fontSize={0.5}
+            color="#8B5CF6"
+            anchorX="center"
+            anchorY="middle"
+          >
+            50%
+          </Text>
         </Float>
         
         <OrbitControls

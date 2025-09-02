@@ -93,7 +93,7 @@ export default function HeroSection() {
       </div>
 
       <div className="absolute bottom-6 left-6 z-30 text-xs text-white/50">
-        © Nexora
+        © CoOrder
       </div>
     </section>
   );

@@ -79,6 +79,9 @@ const Navigation = () => {
             <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
               How it works
             </a>
+            <Link to="/categories" className="text-muted-foreground hover:text-foreground transition-colors">
+              Categories
+            </Link>
             {user && (
               <Link to="/chat" className="text-muted-foreground hover:text-foreground transition-colors flex items-center">
                 <MessageCircle className="w-4 h-4 mr-1" />
@@ -97,9 +100,9 @@ const Navigation = () => {
                 <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
                   <Bell className="w-5 h-5" />
                   {unreadNotifications > 0 && (
-                    <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-destructive text-destructive-foreground">
-                      {unreadNotifications}
-                    </Badge>
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full flex items-center justify-center">
+                      <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
+                    </div>
                   )}
                 </button>
                 
@@ -149,6 +152,9 @@ const Navigation = () => {
               <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
                 How it works
               </a>
+              <Link to="/categories" className="text-muted-foreground hover:text-foreground transition-colors">
+                Categories
+              </Link>
               {user && (
                 <Link to="/chat" className="text-muted-foreground hover:text-foreground transition-colors flex items-center">
                   <MessageCircle className="w-4 h-4 mr-1" />
@@ -171,9 +177,9 @@ const Navigation = () => {
                       <button className="relative p-2 text-muted-foreground">
                         <Bell className="w-5 h-5" />
                         {unreadNotifications > 0 && (
-                          <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-destructive">
-                            {unreadNotifications}
-                          </Badge>
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full flex items-center justify-center">
+                            <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
+                          </div>
                         )}
                       </button>
                     </div>

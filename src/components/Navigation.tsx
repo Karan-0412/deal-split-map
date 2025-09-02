@@ -2,11 +2,35 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Menu, X, Bell, MessageCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
-import ProfileModal from "./ProfileModal";
+import NotificationPanel from "./NotificationPanel";
+// Navigation component with simplified auth
+
+interface NavLinkProps {
+  to: string;
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
+const NavLink = ({ to, label, icon: Icon }: NavLinkProps) => {
+  return (
+    <Link to={to} className="relative group">
+      <div className="flex items-center text-muted-foreground hover:text-foreground transition-colors duration-200">
+        {Icon && <Icon className="w-4 h-4 mr-1" />}
+        <span>{label}</span>
+      </div>
+      <motion.div
+        className="absolute -bottom-1 left-0 h-0.5 bg-primary rounded-full"
+        initial={{ width: 0 }}
+        whileHover={{ width: "100%" }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+      />
+    </Link>
+  );
+};
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -20,40 +44,22 @@ const Navigation = () => {
       fetchUnreadNotifications();
       subscribeToNotifications();
     }
+    
   }, [user]);
 
   const fetchUnreadNotifications = async () => {
     if (!user) return;
-
-    const { count } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false);
-
-    setUnreadNotifications(count || 0);
+    // For demo purposes, mock some notifications
+    setUnreadNotifications(2);
   };
 
   const subscribeToNotifications = () => {
-    if (!user) return;
+    // For demo purposes, no real subscription needed
+    return () => {};
+  };
 
-    const subscription = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          fetchUnreadNotifications();
-        }
-      )
-      .subscribe();
-
-    return () => subscription.unsubscribe();
+  const handleMarkAllNotificationsRead = () => {
+    setUnreadNotifications(0);
   };
 
   return (
@@ -70,23 +76,12 @@ const Navigation = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
-              Home
-            </Link>
-            <Link to="/map" className="text-muted-foreground hover:text-foreground transition-colors">
-              Map
-            </Link>
-            <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
-              How it works
-            </a>
-            <Link to="/categories" className="text-muted-foreground hover:text-foreground transition-colors">
-              Categories
-            </Link>
+            <NavLink to="/" label="Home" />
+            <NavLink to="/map" label="Map" />
+            <NavLink to="/how-it-works" label="How it works" />
+            <NavLink to="/categories" label="Categories" />
             {user && (
-              <Link to="/chat" className="text-muted-foreground hover:text-foreground transition-colors flex items-center">
-                <MessageCircle className="w-4 h-4 mr-1" />
-                Chat
-              </Link>
+              <NavLink to="/chat" label="Chat" icon={MessageCircle} />
             )}
           </div>
 
@@ -97,18 +92,14 @@ const Navigation = () => {
             ) : user ? (
               <>
                 {/* Notifications */}
-                <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
-                  <Bell className="w-5 h-5" />
-                  {unreadNotifications > 0 && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full flex items-center justify-center">
-                      <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                    </div>
-                  )}
-                </button>
+                <NotificationPanel 
+                  unreadCount={unreadNotifications}
+                  onMarkAllRead={handleMarkAllNotificationsRead}
+                />
                 
                 {/* Profile Avatar */}
-                <button 
-                  onClick={() => setIsProfileOpen(true)}
+                <Link 
+                  to="/profile"
                   className="flex items-center space-x-2 p-1 rounded-lg hover:bg-muted transition-colors"
                 >
                   <Avatar className="w-8 h-8">
@@ -116,7 +107,7 @@ const Navigation = () => {
                       {user.email?.charAt(0)?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                </button>
+                </Link>
               </>
             ) : (
               <>
@@ -141,7 +132,12 @@ const Navigation = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border">
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden py-4 border-t border-border"
+          >
             <div className="flex flex-col space-y-4">
               <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
                 Home
@@ -149,9 +145,9 @@ const Navigation = () => {
               <Link to="/map" className="text-muted-foreground hover:text-foreground transition-colors">
                 Map
               </Link>
-              <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
+              <Link to="/how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">
                 How it works
-              </a>
+              </Link>
               <Link to="/categories" className="text-muted-foreground hover:text-foreground transition-colors">
                 Categories
               </Link>
@@ -161,27 +157,24 @@ const Navigation = () => {
                   Chat
                 </Link>
               )}
+
               
-              <div className="flex flex-col space-y-2 pt-4">
+              <div className="flex flex-col space-y-2 pt-4 border-t border-border/20">
                 {user ? (
                   <>
                     <div className="flex items-center justify-between">
-                      <Button variant="ghost" size="sm" onClick={() => setIsProfileOpen(true)} className="justify-start">
-                        <Avatar className="w-6 h-6 mr-2">
+                      <Link to="/profile" className="flex items-center justify-start space-x-2 p-2 text-muted-foreground hover:text-foreground transition-colors">
+                        <Avatar className="w-6 h-6">
                           <AvatarFallback className="text-xs">
                             {user.email?.charAt(0)?.toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        Profile
-                      </Button>
-                      <button className="relative p-2 text-muted-foreground">
-                        <Bell className="w-5 h-5" />
-                        {unreadNotifications > 0 && (
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full flex items-center justify-center">
-                            <div className="w-2 h-2 bg-destructive rounded-full animate-pulse"></div>
-                          </div>
-                        )}
-                      </button>
+                        <span>Profile</span>
+                      </Link>
+                      <NotificationPanel 
+                        unreadCount={unreadNotifications}
+                        onMarkAllRead={handleMarkAllNotificationsRead}
+                      />
                     </div>
                   </>
                 ) : (
@@ -196,14 +189,10 @@ const Navigation = () => {
                 )}
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
       </div>
       
-      <ProfileModal 
-        isOpen={isProfileOpen} 
-        onClose={() => setIsProfileOpen(false)} 
-      />
     </nav>
   );
 };

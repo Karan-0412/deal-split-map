@@ -4,8 +4,8 @@ import HowItWorksSection from "@/components/HowItWorksSection";
 import LiveMapSection from "@/components/LiveMapSection";
 import FeaturedMatches from "@/components/FeaturedMatches";
 import TrustSection from "@/components/TrustSection";
+import CentralActionButton from "@/components/CentralActionButton";
 import Footer from "@/components/Footer";
-
 const Index = () => {
   return (
     <div className="min-h-screen">
@@ -17,6 +17,7 @@ const Index = () => {
         <FeaturedMatches />
         <TrustSection />
       </main>
+      <CentralActionButton />
       <Footer />
     </div>
   );

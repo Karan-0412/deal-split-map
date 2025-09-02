@@ -1,92 +1,61 @@
-import { Button } from "@/components/ui/button";
+import React from "react";
+import Spline from "@splinetool/react-spline";
 import { ArrowRight, Play } from "lucide-react";
-import Scene3D from "./Scene3D";
-import { Suspense } from "react";
 
-const HeroSection = () => {
+// Minimal Button
+const Button = ({ children, variant = "default", size = "md", className = "", ...props }) => {
+  const base = "inline-flex items-center justify-center rounded-full font-semibold focus:outline-none";
+  const sizes = { xl: "px-6 py-3 text-lg", md: "px-4 py-2 text-sm" };
+  const variants = {
+    hero: "bg-gradient-to-r from-purple-600 via-pink-600 to-rose-500 text-white shadow-2xl",
+    outline: "border border-white/20 bg-black/30 text-white",
+    default: "bg-white/5 text-white",
+  };
   return (
-    <section className="py-20 lg:py-32 relative overflow-hidden">
-      {/* 3D Background */}
-      <div className="absolute inset-0 opacity-20">
-        <Suspense fallback={null}>
-          <Scene3D />
-        </Suspense>
-      </div>
-      
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          {/* Left Content */}
-          <div className="text-center lg:text-left">
-            <h1 className="text-4xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-              Split the deal. <br />
-              <span className="text-primary">Pay half, get one.</span>
-            </h1>
-            
-            <p className="text-lg lg:text-xl text-muted-foreground mb-8 leading-relaxed max-w-lg mx-auto lg:mx-0">
-              Share BOGO and multi-buy offers with nearby buyers — post a request and we'll match you instantly.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Button variant="hero" size="xl" className="group">
-                Post a Share Request
-                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              
-              <Button variant="outline" size="xl">
-                <Play className="mr-2 h-5 w-5" />
-                Browse Nearby Requests
-              </Button>
-            </div>
-
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 mt-12 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-accent rounded-full"></span>
-                Secure escrow protection
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-accent rounded-full"></span>
-                Verified users only
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-accent rounded-full"></span>
-                Instant matching
-              </div>
-            </div>
-          </div>
-
-          {/* Right Content - 3D Interactive Model */}
-          <div className="relative">
-            <div className="relative aspect-[16/10] rounded-2xl overflow-hidden glass-card">
-              {/* 3D Model */}
-              <div className="absolute inset-0">
-                <Suspense fallback={
-                  <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
-                  </div>
-                }>
-                  <Scene3D />
-                </Suspense>
-              </div>
-              
-              {/* Floating Elements */}
-              <div className="absolute top-4 right-4 w-12 h-12 glass rounded-full flex items-center justify-center animate-bounce delay-100">
-                <span className="text-accent font-bold text-sm">50%</span>
-              </div>
-              
-              <div className="absolute bottom-4 left-4 w-10 h-10 glass rounded-full flex items-center justify-center animate-bounce delay-300">
-                <span className="text-primary font-bold text-xs">+1</span>
-              </div>
-            </div>
-
-            {/* Background Decorative Elements */}
-            <div className="absolute -top-4 -right-4 w-20 h-20 bg-accent/20 rounded-full blur-xl"></div>
-            <div className="absolute -bottom-4 -left-4 w-16 h-16 bg-primary/20 rounded-full blur-xl"></div>
-          </div>
-        </div>
-      </div>
-    </section>
+    <button className={`${base} ${sizes[size] || sizes.md} ${variants[variant] || variants.default} ${className}`} {...props}>
+      {children}
+    </button>
   );
 };
 
-export default HeroSection;
+export default function HeroSection() {
+  return (
+    <section className="relative w-full h-screen overflow-hidden bg-black text-white">
+      {/* ==== FULLSCREEN SPLINE BACKGROUND ==== */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        <Spline
+          scene="https://prod.spline.design/gAmyNu9DoS3WPoCT/scene.splinecode"
+          className="w-full h-full"
+        />
+      </div>
+
+      {/* Navbar above the model */}
+      {/* <header className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-8 py-4 bg-transparent">
+        <div className="text-lg font-bold tracking-wider">NEXORA</div>
+        <nav className="hidden md:flex gap-8 text-sm text-white/80">
+          <a className="hover:text-white">About</a>
+          <a className="hover:text-white">Products</a>
+          <a className="hover:text-white">Pricing</a>
+          <a className="hover:text-white">Contact</a>
+        </nav>
+      </header> */}
+
+      {/* Hero Content */}
+      <div className="relative z-30 flex flex-col items-center justify-end text-center h-full px-6 pb-20">
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-baseline">
+          <Button variant="hero" size="xl" className="group">
+            Get Started
+            <ArrowRight className="ml-3 h-5 w-5 transform group-hover:translate-x-1 transition-transform" />
+          </Button>
+          <Button variant="outline" size="xl">
+            <Play className="mr-2 h-4 w-4" />
+            Live Demo
+          </Button>
+        </div>
+      </div>
+
+      <div className="absolute bottom-6 left-6 z-30 text-xs text-white/50">© Nexora</div>
+    </section>
+  );
+}

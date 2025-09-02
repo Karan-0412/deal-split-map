@@ -9,7 +9,7 @@ import Auth from "./pages/Auth";
 import MapPage from "./pages/MapPage";
 import ChatPage from "./pages/ChatPage";
 import CategoriesPage from "./pages/CategoriesPage";
-import HowItWorksPage from "./pages/HowitWorksPage";
+import HowItWorksPage from "./pages/HowItWorksPage";
 import PostPage from "./pages/PostPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";

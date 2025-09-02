@@ -138,7 +138,15 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow: hidden; /* Prevent body scrolling */
+    overflow-x: hidden; /* Only prevent horizontal scrolling */
+    overflow-y: auto; /* Allow vertical scrolling */
+    scrollbar-width: none; /* Hide scrollbar for Firefox */
+    -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none; /* Hide scrollbar for Chrome/Safari/Opera */
   }
 
   #root {
@@ -146,7 +154,14 @@
     width: 100vw;
     margin: 0;
     padding: 0;
-    overflow: hidden;
+    overflow-x: hidden; /* Only prevent horizontal scrolling */
+    overflow-y: auto; /* Allow vertical scrolling */
+    scrollbar-width: none; /* Hide scrollbar for Firefox */
+    -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
+  }
+
+  #root::-webkit-scrollbar {
+    display: none; /* Hide scrollbar for Chrome/Safari/Opera */
   }
 
   body {
@@ -308,5 +323,15 @@
     flex-shrink: 0;
     border-top: 1px solid hsl(var(--border));
     background: hsl(var(--background));
+  }
+
+  /* Utility class to hide scrollbars on any element */
+  .hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome/Safari/Opera */
   }
 }

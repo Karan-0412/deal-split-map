@@ -3,10 +3,21 @@ import { Loader } from '@googlemaps/js-api-loader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Filter, MessageCircle } from 'lucide-react';
+import { MapPin, Filter, MessageCircle, Search, DollarSign, Map, X } from 'lucide-react';
 import Navigation from '@/components/Navigation';
 import { useNavigate } from 'react-router-dom';
+
+// Global type declaration for Google Maps markers
+declare global {
+  interface Window {
+    googleMapMarkers: google.maps.Marker[];
+  }
+}
 
 interface Category {
   id: string;
@@ -37,9 +48,17 @@ const MapPage = () => {
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<Request[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 10000]);
+  const [locationFilter, setLocationFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<'recent' | 'budget-high' | 'budget-low'>('recent');
 
   useEffect(() => {
     initializeMap();
@@ -48,10 +67,68 @@ const MapPage = () => {
   }, []);
 
   useEffect(() => {
-    if (mapInstanceRef.current && requests.length > 0) {
+    if (mapInstanceRef.current && filteredRequests.length > 0) {
       addMarkersToMap();
     }
-  }, [requests, selectedCategory]);
+  }, [filteredRequests]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [requests, selectedCategory, searchQuery, budgetRange, locationFilter, sortBy]);
+
+  const applyFilters = () => {
+    let filtered = [...requests];
+
+    // Category filter
+    if (selectedCategory) {
+      filtered = filtered.filter(req => req.categories.id === selectedCategory);
+    }
+
+    // Search query filter
+    if (searchQuery) {
+      filtered = filtered.filter(req => 
+        req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        req.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Budget filter
+    filtered = filtered.filter(req => 
+      req.budget_min >= budgetRange[0] && req.budget_max <= budgetRange[1]
+    );
+
+    // Location filter
+    if (locationFilter) {
+      filtered = filtered.filter(req => 
+        req.address.toLowerCase().includes(locationFilter.toLowerCase())
+      );
+    }
+
+    // Sorting
+    switch (sortBy) {
+      case 'budget-high':
+        filtered.sort((a, b) => b.budget_max - a.budget_max);
+        break;
+      case 'budget-low':
+        filtered.sort((a, b) => a.budget_min - b.budget_min);
+        break;
+      case 'recent':
+      default:
+        // Assuming there's a created_at field, otherwise keep original order
+        break;
+    }
+
+    setFilteredRequests(filtered);
+  };
+
+  const clearFilters = () => {
+    setSelectedCategory(null);
+    setSearchQuery('');
+    setBudgetRange([0, 10000]);
+    setLocationFilter('');
+    setSortBy('recent');
+  };
 
   const initializeMap = async () => {
     const loader = new Loader({
@@ -139,9 +216,11 @@ const MapPage = () => {
   const addMarkersToMap = () => {
     if (!mapInstanceRef.current) return;
 
-    const filteredRequests = selectedCategory
-      ? requests.filter(req => req.categories.id === selectedCategory)
-      : requests;
+    // Clear existing markers
+    if (window.googleMapMarkers) {
+      window.googleMapMarkers.forEach(marker => marker.setMap(null));
+    }
+    window.googleMapMarkers = [];
 
     filteredRequests.forEach(request => {
       const marker = new google.maps.Marker({
@@ -165,6 +244,9 @@ const MapPage = () => {
       marker.addListener('click', () => {
         setSelectedRequest(request);
       });
+
+      if (!window.googleMapMarkers) window.googleMapMarkers = [];
+      window.googleMapMarkers.push(marker);
     });
   };
 
@@ -173,14 +255,140 @@ const MapPage = () => {
       <Navigation />
       
       <div className="container mx-auto px-4 py-6">
-        {/* Categories Filter */}
+        {/* Enhanced Header with Search */}
         <div className="mb-6">
-          <div className="flex items-center space-x-2 mb-3">
-            <Filter className="w-5 h-5 text-muted-foreground" />
-            <h2 className="font-semibold">Categories</h2>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Live Map</h1>
+              <p className="text-muted-foreground">Find and join requests in your area</p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showFilters ? "default" : "outline"}
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                {showFilters ? 'Hide' : 'Show'} Filters
+              </Button>
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Clear All
+              </Button>
+            </div>
           </div>
-          
-          <div className="flex flex-wrap gap-2">
+
+          {/* Search Bar */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search requests by title, description, or location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-3"
+            />
+          </div>
+
+          {/* Enhanced Filters Panel */}
+          {showFilters && (
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {/* Categories Filter */}
+                  <div className="space-y-3">
+                    <Label className="flex items-center gap-2">
+                      <Map className="w-4 h-4" />
+                      Categories
+                    </Label>
+                    <div className="space-y-2">
+                      <Badge
+                        variant={selectedCategory === null ? "default" : "secondary"}
+                        className="cursor-pointer w-full justify-center"
+                        onClick={() => setSelectedCategory(null)}
+                      >
+                        All Categories
+                      </Badge>
+                      {categories.map((category) => (
+                        <Badge
+                          key={category.id}
+                          variant={selectedCategory === category.id ? "default" : "secondary"}
+                          className="cursor-pointer w-full justify-center"
+                          onClick={() => setSelectedCategory(category.id)}
+                        >
+                          {category.icon} {category.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Budget Range Filter */}
+                  <div className="space-y-3">
+                    <Label className="flex items-center gap-2">
+                      <DollarSign className="w-4 h-4" />
+                      Budget Range
+                    </Label>
+                    <div className="space-y-2">
+                      <Slider
+                        value={budgetRange}
+                        onValueChange={setBudgetRange}
+                        max={10000}
+                        min={0}
+                        step={100}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>${budgetRange[0]}</span>
+                        <span>${budgetRange[1]}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location Filter */}
+                  <div className="space-y-3">
+                    <Label className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      Location
+                    </Label>
+                    <Input
+                      placeholder="Enter city or area..."
+                      value={locationFilter}
+                      onChange={(e) => setLocationFilter(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Sort By */}
+                  <div className="space-y-3">
+                    <Label>Sort By</Label>
+                    <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recent">Most Recent</SelectItem>
+                        <SelectItem value="budget-high">Highest Budget</SelectItem>
+                        <SelectItem value="budget-low">Lowest Budget</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Results Count */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {filteredRequests.length} of {requests.length} requests
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Quick Category Pills */}
+          <div className="flex flex-wrap gap-2 mb-4">
             <Badge
               variant={selectedCategory === null ? "default" : "secondary"}
               className="cursor-pointer"

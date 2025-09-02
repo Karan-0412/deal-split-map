@@ -162,11 +162,6 @@ const ChatPage = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-
-    toast({
-      title: "Files selected",
-      description: `${validFiles.length} file(s) ready to send`,
-    });
   };
 
   const removeFile = (index: number) => {
@@ -491,12 +486,7 @@ const ChatPage = () => {
           variant: "destructive"
         });
         setMessages(prev => prev.filter(m => m.id !== optimistic.id));
-      } else {
-        toast({
-          title: "Success",
-          description: uploadedFiles.length > 0 ? "Message and files sent successfully!" : "Message sent successfully!",
-        });
-      }
+      } 
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

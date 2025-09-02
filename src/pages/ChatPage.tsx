@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import Navigation from '@/components/Navigation';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 
 interface ChatRoom {
   id: string;
@@ -15,6 +16,8 @@ interface ChatRoom {
   buyer_id: string;
   seller_id: string;
   created_at: string;
+  buyer_last_read_at?: string;
+  seller_last_read_at?: string;
   requests: {
     title: string;
   };
@@ -43,11 +46,18 @@ interface Message {
 const ChatPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const location = useLocation();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, selectedRoom]);
 
   useEffect(() => {
     if (user) {
@@ -55,11 +65,64 @@ const ChatPage = () => {
     }
   }, [user]);
 
+  // Auto-select first room if none selected and there's no requestId param
   useEffect(() => {
-    if (selectedRoom) {
-      fetchMessages();
-      subscribeToMessages();
+    const params = new URLSearchParams(location.search);
+    const hasRequestId = params.has('requestId');
+    if (!selectedRoom && chatRooms.length > 0 && !hasRequestId) {
+      setSelectedRoom(chatRooms[0].id);
     }
+  }, [chatRooms, selectedRoom, location.search]);
+
+  // When rooms are loaded or URL changes, auto-open/create for requestId
+  useEffect(() => {
+    if (!user) return;
+    const params = new URLSearchParams(location.search);
+    const requestId = params.get('requestId');
+    if (!requestId) return;
+
+    const ensureRoom = async () => {
+      // Try to find an existing room for this request
+      const existing = chatRooms.find(r => r.request_id === requestId);
+      if (existing) {
+        setSelectedRoom(existing.id);
+        return;
+      }
+
+      // Fetch request to determine owner (seller)
+      const { data: req } = await supabase
+        .from('requests')
+        .select('id, user_id')
+        .eq('id', requestId)
+        .single();
+
+      if (!req) return;
+
+      const buyerId = user.id;
+      const sellerId = req.user_id;
+      if (buyerId === sellerId) return; // Avoid self-room
+
+      // Create a room if not exists between these users for this request
+      const { data: newRooms, error } = await supabase
+        .from('chat_rooms')
+        .insert({ request_id: requestId, buyer_id: buyerId, seller_id: sellerId })
+        .select('*');
+
+      if (!error && newRooms && newRooms[0]) {
+        // Refresh rooms list and select
+        await fetchChatRooms();
+        setSelectedRoom(newRooms[0].id);
+      }
+    };
+
+    ensureRoom();
+  }, [location.search, user, chatRooms]);
+
+  useEffect(() => {
+    if (!selectedRoom) return;
+    fetchMessages();
+    const cleanup = subscribeToMessages();
+    return cleanup;
   }, [selectedRoom]);
 
   const fetchChatRooms = async () => {
@@ -71,9 +134,7 @@ const ChatPage = () => {
         *,
         requests (title)
       `)
-      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-      .eq('status', 'active')
-      .order('updated_at', { ascending: false });
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
 
     if (data) {
       // Fetch buyer and seller profiles separately
@@ -160,7 +221,15 @@ const ChatPage = () => {
               profiles: profile || { display_name: '', avatar_url: '' }
             };
 
-            setMessages(prev => [...prev, messageWithProfile as Message]);
+            setMessages(prev => {
+              // Replace any pending message from same sender with same content
+              const withoutPending = prev.filter(m => !(
+                (m as any).id?.toString().startsWith('pending-') &&
+                m.sender_id === messageWithProfile.sender_id &&
+                m.message === messageWithProfile.message
+              ));
+              return [...withoutPending, messageWithProfile as Message];
+            });
           }
         }
       )
@@ -173,12 +242,28 @@ const ChatPage = () => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedRoom || !user) return;
 
+    // Optimistic UI: show the message immediately
+    const optimistic: Message = {
+      id: `pending-${Date.now()}`,
+      chat_room_id: selectedRoom,
+      sender_id: user.id,
+      message: newMessage.trim(),
+      created_at: new Date().toISOString(),
+      profiles: {
+        display_name: '',
+        avatar_url: ''
+      }
+    };
+    setMessages(prev => [...prev, optimistic]);
+    const toSend = newMessage.trim();
+    setNewMessage('');
+
     const { error } = await supabase
       .from('messages')
       .insert({
         chat_room_id: selectedRoom,
         sender_id: user.id,
-        message: newMessage.trim()
+        message: toSend
       });
 
     if (error) {
@@ -187,14 +272,45 @@ const ChatPage = () => {
         description: "Failed to send message",
         variant: "destructive"
       });
-    } else {
-      setNewMessage('');
+      // Rollback optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== optimistic.id));
     }
   };
 
   const getOtherUser = (room: ChatRoom) => {
     if (!user) return null;
     return user.id === room.buyer_id ? room.seller_profile : room.buyer_profile;
+  };
+
+  const getMyLastReadAt = (room: ChatRoom) => {
+    if (!user) return undefined;
+    return user.id === room.buyer_id ? room.buyer_last_read_at : room.seller_last_read_at;
+  };
+
+  const getUnreadForRoom = (room: ChatRoom) => {
+    const lastRead = getMyLastReadAt(room);
+    if (!lastRead) return true;
+    const lastReadDate = new Date(lastRead);
+    // Unread if there exists any message newer than lastRead
+    const latest = messages.length > 0 ? new Date(messages[messages.length - 1].created_at) : null;
+    return latest ? latest > lastReadDate : false;
+  };
+
+  const markRoomAsRead = async (roomId: string) => {
+    if (!user) return;
+    const room = chatRooms.find(r => r.id === roomId);
+    if (!room) return;
+    if (user.id === room.buyer_id) {
+      await supabase.from('chat_rooms').update({ buyer_last_read_at: new Date().toISOString() }).eq('id', roomId);
+    } else {
+      await supabase.from('chat_rooms').update({ seller_last_read_at: new Date().toISOString() }).eq('id', roomId);
+    }
+    // Optimistically update local state
+    setChatRooms(prev => prev.map(r => r.id === roomId ? {
+      ...r,
+      buyer_last_read_at: user.id === r.buyer_id ? new Date().toISOString() : r.buyer_last_read_at,
+      seller_last_read_at: user.id === r.seller_id ? new Date().toISOString() : r.seller_last_read_at
+    } : r));
   };
 
   if (!user) {
@@ -245,7 +361,7 @@ const ChatPage = () => {
                     return (
                       <div
                         key={room.id}
-                        onClick={() => setSelectedRoom(room.id)}
+                        onClick={() => { setSelectedRoom(room.id); markRoomAsRead(room.id); }}
                         className={`p-4 cursor-pointer hover:bg-muted transition-colors ${
                           selectedRoom === room.id ? 'bg-muted' : ''
                         }`}
@@ -265,6 +381,9 @@ const ChatPage = () => {
                               {room.requests.title}
                             </p>
                           </div>
+                          {getUnreadForRoom(room) && (
+                            <div className="w-2.5 h-2.5 rounded-full bg-primary" aria-label="Unread" />
+                          )}
                         </div>
                       </div>
                     );
@@ -279,11 +398,28 @@ const ChatPage = () => {
             {selectedRoom ? (
               <>
                 <CardHeader className="border-b">
-                  <CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>
+                      {(() => {
+                        const room = chatRooms.find(r => r.id === selectedRoom);
+                        const otherUser = room ? getOtherUser(room) : null;
+                        return otherUser?.display_name || 'Chat';
+                      })()}
+                    </span>
+                    {/* Ticks: single for sent, double for read on my last message */}
                     {(() => {
                       const room = chatRooms.find(r => r.id === selectedRoom);
-                      const otherUser = room ? getOtherUser(room) : null;
-                      return otherUser?.display_name || 'Chat';
+                      if (!room || !user) return null;
+                      const myMessages = messages.filter(m => m.sender_id === user.id);
+                      if (myMessages.length === 0) return null;
+                      const lastMyMessage = myMessages[myMessages.length - 1];
+                      const otherLastRead = user.id === room.buyer_id ? room.seller_last_read_at : room.buyer_last_read_at;
+                      const isRead = otherLastRead ? new Date(otherLastRead) >= new Date(lastMyMessage.created_at) : false;
+                      return (
+                        <span className="text-xs text-muted-foreground">
+                          {isRead ? '✓✓ Read' : '✓ Sent'}
+                        </span>
+                      );
                     })()}
                   </CardTitle>
                 </CardHeader>
@@ -312,6 +448,7 @@ const ChatPage = () => {
                         </div>
                       </div>
                     ))}
+                    <div ref={messagesEndRef} />
                   </div>
 
                   {/* Message Input */}

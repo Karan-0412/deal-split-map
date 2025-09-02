@@ -1,8 +1,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, Clock, TrendingUp } from "lucide-react";
+import { Star, MapPin, Clock, TrendingUp, MessageCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const FeaturedMatches = () => {
+  const navigate = useNavigate();
   const featuredDeals = [
     {
       id: 1,
@@ -109,9 +111,19 @@ const FeaturedMatches = () => {
                     </div>
                   </div>
 
-                  <Button variant="hero" className="w-full">
-                    Join this request
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="hero" className="flex-1">
+                      Join this request
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      aria-label="Chat about this request"
+                      onClick={() => navigate(`/chat?requestId=${deal.id}`)}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

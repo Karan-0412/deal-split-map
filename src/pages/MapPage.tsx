@@ -4,8 +4,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, Filter } from 'lucide-react';
+import { MapPin, Filter, MessageCircle } from 'lucide-react';
 import Navigation from '@/components/Navigation';
+import { useNavigate } from 'react-router-dom';
 
 interface Category {
   id: string;
@@ -33,6 +34,7 @@ interface Request {
 const MapPage = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -244,9 +246,19 @@ const MapPage = () => {
                       </p>
                     </div>
 
-                    <Button className="w-full" disabled>
-                      Join Request (Coming Soon)
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button className="flex-1" disabled>
+                        Join Request (Coming Soon)
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Chat about this request"
+                        onClick={() => navigate(`/chat?requestId=${selectedRequest.id}`)}
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

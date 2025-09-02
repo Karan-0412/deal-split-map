@@ -146,58 +146,48 @@ const ProfilePage = () => {
   };
 
   const fetchUserPosts = async () => {
-    try {
-      // Use mock posts for now to avoid type issues
-      const mockPosts: UserPost[] = [
-        {
-          id: '1',
-          title: 'iPhone 15 Pro - Buy 1 Get 1 Deal',
-          description: 'Found a great deal at Best Buy. Looking for someone to split the cost!',
-          status: 'active',
-          created_at: new Date().toISOString(),
-          budget_min: 500,
-          budget_max: 500,
-          address: 'Best Buy, Union Square, San Francisco'
-        },
-        {
-          id: '2', 
-          title: 'Nike Air Max Shoes - Group Purchase',
-          description: 'Bulk discount available for 4+ pairs. Need 2 more people.',
-          status: 'matched',
-          created_at: new Date(Date.now() - 86400000).toISOString(),
-          budget_min: 80,
-          budget_max: 80,
-          address: 'Nike Store, Downtown SF'
-        },
-        {
-          id: '3',
-          title: 'Costco Bulk Groceries',
-          description: 'Weekly grocery run, split the bulk items cost.',
-          status: 'completed',
-          created_at: new Date(Date.now() - 604800000).toISOString(),
-          budget_min: 150,
-          budget_max: 150,
-          address: 'Costco Wholesale, San Francisco'
-        }
-      ];
-      setUserPosts(mockPosts);
-      
-      // Uncomment and modify this when you have your posts table ready:
-      // const response = await supabase
-      //   .from("posts")
-      //   .select("id, title, description, status, created_at, budget_min, budget_max, address")
-      //   .eq("user_id", user?.id);
-      // 
-      // if (response.data && response.data.length > 0) {
-      //   setUserPosts(response.data as UserPost[]);
-      // } else {
-      //   setUserPosts(mockPosts);
-      // }
-      
-    } catch (error) {
-      console.error('Error fetching user posts:', error);
+  if (!user?.id) return;
+
+  try {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("requests") // or "posts" if your table name is different
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch your posts",
+        variant: "destructive"
+      });
+      return;
     }
-  };
+
+    if (data) {
+      // Map Supabase data to UserPost interface
+      const mappedPosts: UserPost[] = data.map((post: any) => ({
+        id: post.id,
+        title: post.title,
+        description: post.description,
+        status: post.status,
+        created_at: post.created_at,
+        budget_min: post.budget_min,
+        budget_max: post.budget_max,
+        address: post.address,
+      }));
+      setUserPosts(mappedPosts);
+    }
+  } catch (error) {
+    console.error("Error fetching user posts:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const getStatusColor = (status: string) => {
     switch (status) {

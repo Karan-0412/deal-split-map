@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -114,43 +113,7 @@ const ChatPage = () => {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
-    
-    // Validate files
-    const validFiles = files.filter(file => {
-      // Check file size (50MB limit)
-      if (file.size > 50 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: `${file.name} is larger than 50MB`,
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      // Check file type
-      const allowedTypes = [
-        'image/', 'video/', 'audio/', 
-        'application/pdf', 'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain', 'application/zip', 'application/x-rar-compressed'
-      ];
-      
-      const isAllowed = allowedTypes.some(type => file.type.startsWith(type));
-      if (!isAllowed) {
-        toast({
-          title: "File type not supported",
-          description: `${file.name} is not a supported file type`,
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      return true;
-    });
-
-    if (validFiles.length === 0) return;
-
-    const newAttachments: FileAttachment[] = validFiles.map(file => ({
+    const newAttachments: FileAttachment[] = files.map(file => ({
       file,
       type: getFileType(file),
       preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
@@ -162,11 +125,6 @@ const ChatPage = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-
-    toast({
-      title: "Files selected",
-      description: `${validFiles.length} file(s) ready to send`,
-    });
   };
 
   const removeFile = (index: number) => {
@@ -183,26 +141,9 @@ const ChatPage = () => {
 
   const uploadFile = async (file: File): Promise<string | null> => {
     try {
-      if (!selectedRoom) {
-        console.error('No room selected for file upload');
-        return null;
-      }
-
-      // Check file size (50MB limit)
-      if (file.size > 50 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "File size must be less than 50MB",
-          variant: "destructive"
-        });
-        return null;
-      }
-
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `chat-attachments/${selectedRoom}/${fileName}`;
-
-      console.log('Uploading file:', file.name, 'to path:', filePath);
 
       const { error: uploadError } = await supabase.storage
         .from('chat-files')
@@ -210,29 +151,16 @@ const ChatPage = () => {
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
-        toast({
-          title: "Upload failed",
-          description: uploadError.message || "Failed to upload file",
-          variant: "destructive"
-        });
         return null;
       }
-
-      console.log('File uploaded successfully, getting public URL...');
 
       const { data: { publicUrl } } = supabase.storage
         .from('chat-files')
         .getPublicUrl(filePath);
 
-      console.log('Public URL:', publicUrl);
       return publicUrl;
     } catch (error) {
       console.error('File upload error:', error);
-      toast({
-        title: "Upload error",
-        description: "An unexpected error occurred during upload",
-        variant: "destructive"
-      });
       return null;
     }
   };
@@ -418,37 +346,19 @@ const ChatPage = () => {
     setIsUploading(true);
 
     try {
-      // Upload files first if any
       const uploadedFiles: { url: string; type: string; name: string }[] = [];
       
-      if (selectedFiles.length > 0) {
-        toast({
-          title: "Uploading files...",
-          description: `Uploading ${selectedFiles.length} file(s)...`,
-        });
-
-        for (const attachment of selectedFiles) {
-          const url = await uploadFile(attachment.file);
-          if (url) {
-            uploadedFiles.push({
-              url,
-              type: attachment.type,
-              name: attachment.file.name
-            });
-          } else {
-            // If any file fails to upload, stop and show error
-            toast({
-              title: "Upload failed",
-              description: `Failed to upload ${attachment.file.name}`,
-              variant: "destructive"
-            });
-            setIsUploading(false);
-            return;
-          }
+      for (const attachment of selectedFiles) {
+        const url = await uploadFile(attachment.file);
+        if (url) {
+          uploadedFiles.push({
+            url,
+            type: attachment.type,
+            name: attachment.file.name
+          });
         }
       }
 
-      // Create optimistic message
       const optimistic: Message = {
         id: `pending-${Date.now()}`,
         chat_room_id: selectedRoom,
@@ -471,7 +381,6 @@ const ChatPage = () => {
 
       setTimeout(() => scrollToBottom('smooth'), 50);
 
-      // Send message to database
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -484,10 +393,9 @@ const ChatPage = () => {
         });
 
       if (error) {
-        console.error('Database error:', error);
         toast({
           title: "Error",
-          description: "Failed to save message to database",
+          description: "Failed to send message",
           variant: "destructive"
         });
         setMessages(prev => prev.filter(m => m.id !== optimistic.id));

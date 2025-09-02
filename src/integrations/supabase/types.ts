@@ -201,6 +201,7 @@ export type Database = {
           id: string
           location_lat: number
           location_lng: number
+          product_link: string | null
           status: string | null
           title: string
           updated_at: string
@@ -217,6 +218,7 @@ export type Database = {
           id?: string
           location_lat: number
           location_lng: number
+          product_link?: string | null
           status?: string | null
           title: string
           updated_at?: string
@@ -233,6 +235,7 @@ export type Database = {
           id?: string
           location_lat?: number
           location_lng?: number
+          product_link?: string | null
           status?: string | null
           title?: string
           updated_at?: string

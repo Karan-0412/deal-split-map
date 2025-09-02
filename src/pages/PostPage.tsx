@@ -175,16 +175,16 @@ const PostPage = () => {
       return;
     }
 
-    if (!formData.productName || !formData.offerType || !formData.categoryId) {
+    if (!formData.productName || !formData.offerType || !formData.categoryId || !formData.productLink) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields",
+        description: "Please fill in all required fields including product link",
         variant: "destructive"
       });
       return;
     }
 
-    if (formData.productLink && !isValidUrl(formData.productLink)) {
+    if (!isValidUrl(formData.productLink)) {
       toast({
         title: "Invalid URL",
         description: "Please enter a valid product link",
@@ -196,25 +196,46 @@ const PostPage = () => {
     setLoading(true);
 
     try {
+      // Get current user from Supabase auth
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to post a request",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+
       const requestData = {
         title: formData.productName,
-        description: formData.description,
+        description: formData.description || null,
         category_id: formData.categoryId,
-        location_lat: selectedLocation.lat,
-        location_lng: selectedLocation.lng,
-        address: formData.address,
+        location_lat: parseFloat(selectedLocation.lat.toString()),
+        location_lng: parseFloat(selectedLocation.lng.toString()),
+        address: formData.address || null,
         budget_min: parseFloat(formData.price) || 0,
         budget_max: parseFloat(formData.price) || 0,
-        product_link: formData.productLink || null,
-        user_id: 'demo-user-123', // Replace with actual Supabase auth user
+        product_link: formData.productLink,
+        user_id: user.id,
         status: 'active'
       };
 
-      const { error } = await supabase.from("requests").insert(requestData);
+      console.log('Submitting request data:', requestData); // Debug log
+
+      const { data, error } = await supabase
+        .from("requests")
+        .insert(requestData)
+        .select();
 
       if (error) {
+        console.error('Supabase error:', error);
         throw new Error(error.message);
       }
+
+      console.log('Successfully inserted:', data); // Debug log
 
       toast({
         title: "Request Posted!",
@@ -222,10 +243,11 @@ const PostPage = () => {
       });
 
       navigate('/map');
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Submit error:', error);
       toast({
         title: "Error",
-        description: "Failed to post request. Please try again.",
+        description: `Failed to post request: ${error.message}`,
         variant: "destructive"
       });
     } finally {
@@ -337,13 +359,14 @@ const PostPage = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="productLink">Product Link (Optional)</Label>
+                      <Label htmlFor="productLink">Product Link *</Label>
                       <Input
                         id="productLink"
                         type="url"
                         placeholder="https://example.com/product"
                         value={formData.productLink || ''}
                         onChange={(e) => handleInputChange('productLink', e.target.value)}
+                        required
                       />
                       {formData.productLink && !isValidUrl(formData.productLink) && (
                         <p className="text-sm text-red-500 mt-1">Please enter a valid URL</p>

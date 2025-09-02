@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,11 @@ import {
   Edit, 
   Eye, 
   Trash2,
-  Calendar
+  Calendar,
+  LogOut
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = "https://khlvxxjjezllxrmfchob.supabase.co";
@@ -50,9 +53,12 @@ interface UserPost {
 
 const ProfilePage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<UserPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'all'>('active');
 
   useEffect(() => {
@@ -61,6 +67,33 @@ const ProfilePage = () => {
       fetchUserPosts();
     }
   }, [user]);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Logged Out",
+        description: "You have been successfully logged out",
+      });
+
+      navigate('/');
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      toast({
+        title: "Logout Error",
+        description: error.message || "Failed to log out",
+        variant: "destructive"
+      });
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -287,6 +320,15 @@ const ProfilePage = () => {
                     <Button variant="outline" className="w-full">
                       <MessageCircle className="w-4 h-4 mr-2" />
                       My Chats
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      className="w-full"
+                      onClick={handleLogout}
+                      disabled={loggingOut}
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      {loggingOut ? 'Logging out...' : 'Logout'}
                     </Button>
                   </div>
                 </CardContent>

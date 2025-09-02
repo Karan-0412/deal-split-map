@@ -53,7 +53,7 @@ const MapPage = () => {
 
   const initializeMap = async () => {
     const loader = new Loader({
-      apiKey: '', // We'll need to add this as a secret
+      apiKey: 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc', // We'll need to add this as a secret
       version: 'weekly',
       libraries: ['maps', 'places']
     });

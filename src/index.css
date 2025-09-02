@@ -6,52 +6,58 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 220 30% 10%;
+    --background: 240 15% 3%;
+    --foreground: 0 0% 98%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 30% 10%;
+    --card: 240 15% 8%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 10%;
+    --popover: 240 15% 8%;
+    --popover-foreground: 0 0% 98%;
 
-    /* Brand Colors - Teal Primary */
-    --primary: 180 85% 34%;
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 180 85% 30%;
-    --primary-light: 180 85% 95%;
+    /* Brand Colors - Purple Primary */
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+    --primary-hover: 262 83% 48%;
+    --primary-light: 262 83% 68%;
 
-    /* Accent - Amber */
-    --accent: 31 100% 70%;
-    --accent-foreground: 220 30% 10%;
-    --accent-hover: 31 100% 65%;
-    --accent-light: 31 100% 95%;
+    /* Accent - Green */
+    --accent: 142 76% 36%;
+    --accent-foreground: 355 7% 97%;
+    --accent-hover: 142 76% 30%;
+    --accent-light: 142 76% 46%;
 
     /* Neutrals */
-    --secondary: 220 13% 96%;
-    --secondary-foreground: 220 30% 10%;
-    --secondary-hover: 220 13% 92%;
+    --secondary: 240 15% 12%;
+    --secondary-foreground: 0 0% 98%;
+    --secondary-hover: 240 15% 16%;
 
-    --muted: 220 13% 96%;
-    --muted-foreground: 220 13% 46%;
+    --muted: 240 15% 12%;
+    --muted-foreground: 240 5% 65%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 180 85% 34%;
+    --border: 240 15% 20%;
+    --input: 240 15% 15%;
+    --ring: 262 83% 58%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Glassmorphism tokens */
+    --glass-bg: 240 15% 8% / 0.1;
+    --glass-border: 240 15% 30% / 0.2;
+    --glass-shadow: 0 8px 32px 0 hsl(240 15% 0% / 0.37);
+    --glass-blur: blur(10px);
 
     /* Gradients */
     --gradient-hero: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
     --gradient-card: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
     
     /* Shadows */
-    --shadow-soft: 0 4px 16px -4px hsl(220 30% 10% / 0.1);
-    --shadow-card: 0 8px 32px -8px hsl(220 30% 10% / 0.12);
-    --shadow-primary: 0 8px 32px -8px hsl(var(--primary) / 0.25);
+    --shadow-soft: 0 4px 16px -4px hsl(240 15% 0% / 0.3);
+    --shadow-card: 0 8px 32px -8px hsl(240 15% 0% / 0.4);
+    --shadow-primary: 0 8px 32px -8px hsl(var(--primary) / 0.4);
 
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -75,33 +81,41 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 240 15% 3%;
+    --foreground: 0 0% 98%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 240 15% 8%;
+    --card-foreground: 0 0% 98%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 240 15% 8%;
+    --popover-foreground: 0 0% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+    --primary-light: 262 83% 68%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 15% 12%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 240 15% 12%;
+    --muted-foreground: 240 5% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 142 76% 36%;
+    --accent-foreground: 355 7% 97%;
+    --accent-light: 142 76% 46%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 240 15% 20%;
+    --input: 240 15% 15%;
+    --ring: 262 83% 58%;
+
+    /* Glassmorphism tokens */
+    --glass-bg: 240 15% 8% / 0.1;
+    --glass-border: 240 15% 30% / 0.2;
+    --glass-shadow: 0 8px 32px 0 hsl(240 15% 0% / 0.37);
+    --glass-blur: blur(10px);
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -119,6 +133,22 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    background: linear-gradient(135deg, hsl(240 15% 2%), hsl(240 15% 5%));
+    color: hsl(var(--foreground));
+    min-height: 100vh;
+  }
+
+  .glass {
+    background: hsla(var(--glass-bg));
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid hsla(var(--glass-border));
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-card {
+    background: hsla(var(--card) / 0.1);
+    backdrop-filter: blur(20px);
+    border: 1px solid hsla(var(--border) / 0.2);
+    box-shadow: 0 8px 32px 0 hsla(var(--foreground) / 0.1);
   }
 }

@@ -201,6 +201,16 @@
     box-shadow: 0 8px 32px 0 hsla(var(--foreground) / 0.1);
   }
 
+  /* Pulse animation for notifications */
+  @keyframes pulse-notification {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+  }
+
+  .pulse-notification {
+    animation: pulse-notification 1.5s ease-in-out;
+  }
+
   /* Enhanced Custom scrollbar styles for chat interface */
   .scrollbar-thin {
     scrollbar-width: thin;

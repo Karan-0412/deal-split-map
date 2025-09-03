@@ -335,7 +335,7 @@ const MapPage = () => {
                     <div className="space-y-2">
                       <Slider
                         value={budgetRange}
-                        onValueChange={setBudgetRange}
+                        onValueChange={(value) => setBudgetRange(value as [number, number])}
                         max={10000}
                         min={0}
                         step={100}

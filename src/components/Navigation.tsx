@@ -7,6 +7,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import NotificationPanel from "./NotificationPanel";
+import { generateAvatarColor } from "@/lib/avatar-utils";
+import { NotificationPopup } from "./NotificationPopup";
+import { useNotifications } from "@/hooks/useNotifications";
 // Navigation component with simplified auth
 
 interface NavLinkProps {
@@ -38,6 +41,7 @@ const Navigation = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { activeNotification, dismissNotification, handleReply } = useNotifications();
 
   useEffect(() => {
     if (user) {
@@ -103,7 +107,10 @@ const Navigation = () => {
                   className="flex items-center space-x-2 p-1 rounded-lg hover:bg-muted transition-colors"
                 >
                   <Avatar className="w-8 h-8">
-                    <AvatarFallback className="text-sm">
+                    <AvatarFallback 
+                      className="text-sm text-white font-semibold"
+                      style={{ backgroundColor: generateAvatarColor(user.id) }}
+                    >
                       {user.email?.charAt(0)?.toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -165,7 +172,10 @@ const Navigation = () => {
                     <div className="flex items-center justify-between">
                       <Link to="/profile" className="flex items-center justify-start space-x-2 p-2 text-muted-foreground hover:text-foreground transition-colors">
                         <Avatar className="w-6 h-6">
-                          <AvatarFallback className="text-xs">
+                          <AvatarFallback 
+                            className="text-xs text-white font-semibold"
+                            style={{ backgroundColor: generateAvatarColor(user.id) }}
+                          >
                             {user.email?.charAt(0)?.toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -192,6 +202,21 @@ const Navigation = () => {
           </motion.div>
         )}
       </div>
+
+      {/* Notification Popup */}
+      {activeNotification && (
+        <NotificationPopup
+          isVisible={!!activeNotification}
+          onClose={dismissNotification}
+          sender={{
+            id: activeNotification.senderId,
+            name: activeNotification.senderName,
+            avatar: activeNotification.senderAvatar
+          }}
+          message={activeNotification.message}
+          onReply={handleReply}
+        />
+      )}
       
     </nav>
   );

@@ -183,9 +183,9 @@ const ChatPage = () => {
     if (!room) return;
     const now = new Date().toISOString();
     if (user.id === room.buyer_id) {
-      await supabase.from('chat_rooms').update({ buyer_last_read_at: now }).eq('id', roomId);
+      await supabase.from('chat_rooms').update({ buyer_last_read_at: now } as any).eq('id', roomId);
     } else {
-      await supabase.from('chat_rooms').update({ seller_last_read_at: now }).eq('id', roomId);
+      await supabase.from('chat_rooms').update({ seller_last_read_at: now } as any).eq('id', roomId);
     }
     setChatRooms(prev => prev.map(r => r.id === roomId ? {
       ...r,

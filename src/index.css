@@ -309,6 +309,42 @@
     overflow: hidden;
   }
 
+  /* Ensure notification popup appears above everything */
+  .notification-popup {
+    z-index: 9999 !important;
+    position: fixed !important;
+  }
+
+  /* Animation for notification popup */
+  .animate-enter {
+    animation: slideInRight 0.3s ease-out;
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Pulse animation for notification indicator */
+  .pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: .5;
+    }
+  }
+
   .chat-content {
     flex: 1;
     min-height: 0;

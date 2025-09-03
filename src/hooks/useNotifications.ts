@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 export interface Notification {
   id: string;
@@ -17,27 +18,34 @@ export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeNotification, setActiveNotification] = useState<Notification | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user) return;
 
-    let isMounted = true;
-    let chatRoomIds = new Set<string>();
-
-    const setup = async () => {
-      // Prefetch chat rooms the user is part of
-      const { data: rooms } = await supabase
+    const setupNotifications = async () => {
+      console.log('Setting up notifications for user:', user.id);
+      
+      // Get all chat rooms the user is part of
+      const { data: rooms, error: roomsError } = await supabase
         .from('chat_rooms')
-        .select('id,buyer_id,seller_id')
+        .select('id, buyer_id, seller_id')
         .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
 
-      if (rooms && isMounted) {
-        rooms.forEach((r: any) => chatRoomIds.add(r.id));
+      if (roomsError) {
+        console.error('Error fetching chat rooms:', roomsError);
+        return;
       }
 
-      // Subscribe to new messages (filter in callback)
+      const chatRoomIds = new Set<string>();
+      if (rooms) {
+        rooms.forEach((room: any) => chatRoomIds.add(room.id));
+        console.log('Monitoring chat rooms:', Array.from(chatRoomIds));
+      }
+
+      // Subscribe to new messages
       const channel = supabase
-        .channel('notifications')
+        .channel(`notifications-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -47,17 +55,36 @@ export const useNotifications = () => {
           },
           async (payload) => {
             try {
-              const msg = payload.new as any;
+              console.log('New message received:', payload.new);
+              const msg = payload.new as {
+                id: string;
+                chat_room_id: string;
+                sender_id: string;
+                message: string;
+                created_at: string;
+              };
 
               // Ignore if not in user's rooms or if it's the user's own message
-              if (!chatRoomIds.has(msg.chat_room_id) || msg.sender_id === user.id) return;
+              if (!chatRoomIds.has(msg.chat_room_id)) {
+                console.log('Message not in monitored rooms');
+                return;
+              }
+              
+              if (msg.sender_id === user.id) {
+                console.log('Ignoring own message');
+                return;
+              }
+
+              console.log('Processing notification for message:', msg.id);
 
               // Fetch sender profile
               const { data: profile } = await supabase
                 .from('profiles')
-                .select('display_name, avatar_url, user_id')
+                .select('display_name, avatar_url')
                 .eq('user_id', msg.sender_id)
                 .single();
+
+              console.log('Sender profile:', profile);
 
               const newNotification: Notification = {
                 id: `msg_${msg.id}`,
@@ -70,16 +97,28 @@ export const useNotifications = () => {
                 isRead: false,
               };
 
+              console.log('Creating notification:', newNotification);
+
               setNotifications((prev) => [newNotification, ...prev]);
               setActiveNotification(newNotification);
+
+              // Show toast notification as backup
+              toast({
+                title: `New message from ${newNotification.senderName}`,
+                description: newNotification.message,
+              });
 
               // Notify BOGO to react
               window.dispatchEvent(
                 new CustomEvent('bogo:new-message', { detail: { notification: newNotification } })
               );
 
+              console.log('Notification set, will auto-hide in 8 seconds');
               // Auto-hide after 5 seconds
-              setTimeout(() => setActiveNotification(null), 5000);
+              setTimeout(() => {
+                console.log('Auto-hiding notification');
+                setActiveNotification(null);
+              }, 8000);
             } catch (e) {
               console.error('Notification handling error:', e);
             }
@@ -87,30 +126,33 @@ export const useNotifications = () => {
         )
         .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      console.log('Subscribed to notifications channel');
+      
+      return channel;
     };
 
-    const cleanupPromise = setup();
+    const channelPromise = setupNotifications();
 
     return () => {
-      isMounted = false;
-      // Ensure channel cleaned when setup resolves
-      // @ts-ignore - await returned cleanup if any
-      cleanupPromise?.then?.((cleanup: any) => cleanup && cleanup());
+      channelPromise.then((channel) => {
+        if (channel) {
+          console.log('Cleaning up notifications channel');
+          supabase.removeChannel(channel);
+        }
+      });
     };
   }, [user]);
 
   const dismissNotification = () => {
+    console.log('Dismissing notification');
     setActiveNotification(null);
   };
 
   const handleReply = async (message: string) => {
     if (!activeNotification || !user) return;
     
+    console.log('Handling reply:', message);
     // Send reply (this would need proper chat room logic)
-    console.log('Sending reply:', message);
     
     // For demo purposes, just dismiss
     setActiveNotification(null);

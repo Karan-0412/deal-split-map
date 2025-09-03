@@ -29,6 +29,9 @@ export const NotificationPopup = ({
   const [replyText, setReplyText] = useState("");
   const [showReplyInput, setShowReplyInput] = useState(false);
 
+  // Debug logging
+  console.log('NotificationPopup render:', { isVisible, sender, message });
+
   const handleSendReply = () => {
     if (replyText.trim() && onReply) {
       onReply(replyText);
@@ -43,12 +46,14 @@ export const NotificationPopup = ({
   return (
     <AnimatePresence>
       {isVisible && (
+        <>
+          {console.log('Rendering notification popup')}
         <motion.div
           initial={{ x: 400, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 400, opacity: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 120 }}
-          className="fixed bottom-4 right-4 z-50 w-80"
+          className="fixed bottom-4 right-4 z-[9999] w-80"
         >
           <motion.div
             initial={{ scale: 0.95 }}
@@ -158,6 +163,7 @@ export const NotificationPopup = ({
             </Card>
           </motion.div>
         </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

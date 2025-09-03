@@ -361,6 +361,8 @@ const ChatPage = () => {
   const subscribeToMessages = useCallback(() => {
     if (!selectedRoom) return;
 
+    console.log('Subscribing to messages for room:', selectedRoom);
+
     const subscription = supabase
       .channel(`room-${selectedRoom}`)
       .on(
@@ -372,6 +374,8 @@ const ChatPage = () => {
           filter: `chat_room_id=eq.${selectedRoom}`
         },
         async (payload) => {
+          console.log('Received message in chat:', payload.new);
+          
           const { data: message } = await supabase
             .from('messages')
             .select('*')
@@ -403,12 +407,15 @@ const ChatPage = () => {
       )
       .subscribe();
 
+    console.log('Subscribed to room messages');
     return () => subscription.unsubscribe();
   }, [selectedRoom]);
 
   const sendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!newMessage.trim() && selectedFiles.length === 0) || !selectedRoom || !user) return;
+
+    console.log('Sending message:', { message: newMessage, room: selectedRoom, user: user.id });
 
     setIsUploading(true);
 
@@ -486,7 +493,9 @@ const ChatPage = () => {
           variant: "destructive"
         });
         setMessages(prev => prev.filter(m => m.id !== optimistic.id));
-      } 
+      } else {
+        console.log('Message sent successfully to database');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({

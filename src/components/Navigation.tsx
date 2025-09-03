@@ -9,7 +9,6 @@ import { useAuth } from "@/hooks/useAuth";
 import NotificationPanel from "./NotificationPanel";
 import { generateAvatarColor } from "@/lib/avatar-utils";
 import { NotificationPopup } from "./NotificationPopup";
-import { useNotifications } from "@/hooks/useNotifications";
 // Navigation component with simplified auth
 
 interface NavLinkProps {
@@ -41,7 +40,6 @@ const Navigation = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const { activeNotification, dismissNotification, handleReply } = useNotifications();
 
   useEffect(() => {
     if (user) {
@@ -203,21 +201,6 @@ const Navigation = () => {
         )}
       </div>
 
-      {/* Notification Popup */}
-      {activeNotification && (
-        <NotificationPopup
-          isVisible={!!activeNotification}
-          onClose={dismissNotification}
-          sender={{
-            id: activeNotification.senderId,
-            name: activeNotification.senderName,
-            avatar: activeNotification.senderAvatar
-          }}
-          message={activeNotification.message}
-          onReply={handleReply}
-        />
-      )}
-      
     </nav>
   );
 };

@@ -239,9 +239,26 @@ export const useNotifications = () => {
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
-  const markAllAsRead = () => {
-  setNotifications([]);
+const markAllAsRead = async () => {
+  if (!user) return;
+
+  try {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Error marking notifications as read:", error.message);
+      return;
+    }
+    setNotifications([]); 
+  } catch (err) {
+    console.error("🔥 Unexpected error:", err);
+  }
 };
+
+
 
 
   return {

@@ -10,7 +10,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { 
-  User, 
   Mail, 
   MapPin, 
   Star, 
@@ -89,10 +88,7 @@ const ProfilePage = () => {
     setLoggingOut(true);
     try {
       const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast({
         title: "Logged Out",
@@ -133,7 +129,6 @@ const ProfilePage = () => {
 
       if (error) {
         console.error("Error fetching profile:", error.message);
-        // Fallback to auth user data if profile doesn't exist
         const fallbackProfile: Profile = {
           id: authUser.id,
           username: authUser.user_metadata?.display_name || 'Demo User',
@@ -141,7 +136,6 @@ const ProfilePage = () => {
         };
         setProfile(fallbackProfile);
       } else {
-        // Transform the data to match your Profile interface
         const transformedProfile: Profile = {
           id: data.id,
           username: data.display_name || authUser.user_metadata?.display_name || 'Demo User',
@@ -163,48 +157,78 @@ const ProfilePage = () => {
   };
 
   const fetchUserPosts = async () => {
-  if (!user?.id) return;
+    if (!user?.id) return;
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("requests")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-  try {
-    setLoading(true);
+      if (error) {
+        console.error("Error fetching posts:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch your posts",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    const { data, error } = await supabase
-      .from("requests") // or "posts" if your table name is different
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      if (data) {
+        const mappedPosts: UserPost[] = data.map((post: any) => ({
+          id: post.id,
+          title: post.title,
+          description: post.description,
+          status: post.status,
+          created_at: post.created_at,
+          budget_min: post.budget_min,
+          budget_max: post.budget_max,
+          address: post.address,
+        }));
+        setUserPosts(mappedPosts);
+      }
+    } catch (error) {
+      console.error("Error fetching user posts:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    if (error) {
-      console.error("Error fetching posts:", error);
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+    try {
+      const { error } = await supabase
+        .from("requests")
+        .delete()
+        .eq("id", postId);
+
+      if (error) {
+        console.error("Error deleting post:", error);
+        toast({
+          title: "Delete Failed",
+          description: error.message || "Could not delete the post.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setUserPosts(prev => prev.filter(post => post.id !== postId));
+
+      toast({
+        title: "Post Deleted",
+        description: "The post has been successfully deleted.",
+      });
+    } catch (err: any) {
+      console.error("Unexpected error:", err);
       toast({
         title: "Error",
-        description: "Failed to fetch your posts",
-        variant: "destructive"
+        description: err.message || "Something went wrong while deleting.",
+        variant: "destructive",
       });
-      return;
     }
-
-    if (data) {
-      // Map Supabase data to UserPost interface
-      const mappedPosts: UserPost[] = data.map((post: any) => ({
-        id: post.id,
-        title: post.title,
-        description: post.description,
-        status: post.status,
-        created_at: post.created_at,
-        budget_min: post.budget_min,
-        budget_max: post.budget_max,
-        address: post.address,
-      }));
-      setUserPosts(mappedPosts);
-    }
-  } catch (error) {
-    console.error("Error fetching user posts:", error);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -226,13 +250,11 @@ const ProfilePage = () => {
   const handleSaveProfile = async () => {
     if (!user?.id) return;
     try {
-      // Update auth email if changed
       if (formEmail && formEmail !== profile?.email) {
         const { error: emailError } = await supabase.auth.updateUser({ email: formEmail });
         if (emailError) throw emailError;
       }
 
-      // Upsert profile
       const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
@@ -273,7 +295,6 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background/50 to-primary/5">
       <Navigation />
-      
       <main className="py-20">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="grid lg:grid-cols-3 gap-8">
@@ -385,8 +406,6 @@ const ProfilePage = () => {
                     <Package className="w-5 h-5 mr-2" />
                     My Posts
                   </CardTitle>
-                  
-                  {/* Tab Navigation */}
                   <div className="flex space-x-1 bg-muted/30 p-1 rounded-lg w-fit">
                     {[
                       { key: 'active', label: 'Active' },
@@ -455,15 +474,16 @@ const ProfilePage = () => {
                               <span>•</span>
                               <span>{new Date(post.created_at).toLocaleDateString()}</span>
                             </div>
-                            
                             <div className="flex items-center space-x-2">
                               <Button size="sm" variant="ghost">
                                 <Eye className="w-4 h-4" />
                               </Button>
-                              <Button size="sm" variant="ghost">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-600">
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                className="text-red-500 hover:text-red-600"
+                                onClick={() => handleDeletePost(post.id)}
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
@@ -477,37 +497,36 @@ const ProfilePage = () => {
             </motion.div>
           </div>
         </div>
+      </main>
+
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-muted-foreground">Name</label>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
               <Input value={formName} onChange={(e) => setFormName(e.target.value)} />
             </div>
-            <div>
-              <label className="text-sm text-muted-foreground">Email</label>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Email</label>
               <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} />
-              <p className="text-xs text-muted-foreground mt-1">Changing email may require confirmation.</p>
             </div>
-            <div>
-              <label className="text-sm text-muted-foreground">Bio</label>
-              <Textarea value={formBio} onChange={(e) => setFormBio(e.target.value)} rows={4} />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Bio</label>
+              <Textarea value={formBio} onChange={(e) => setFormBio(e.target.value)} />
             </div>
-            <div>
-              <label className="text-sm text-muted-foreground">Avatar URL</label>
-              <Input value={formAvatarUrl} onChange={(e) => setFormAvatarUrl(e.target.value)} placeholder="https://..." />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Avatar URL</label>
+              <Input value={formAvatarUrl} onChange={(e) => setFormAvatarUrl(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleSaveProfile}>Save</Button>
+            <Button onClick={handleSaveProfile}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </main>
     </div>
   );
 };

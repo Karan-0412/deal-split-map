@@ -36,6 +36,7 @@ interface Request {
   budget_min: number;
   budget_max: number;
   categories: Category;
+  user_id: string; // 👈 add this line
   profiles: {
     display_name: string;
     avatar_url: string;
@@ -459,13 +460,16 @@ const MapPage = () => {
                         Join Request (Coming Soon)
                       </Button>
                       <Button
-                        variant="outline"
-                        size="icon"
-                        aria-label="Chat about this request"
-                        onClick={() => navigate(`/chat?requestId=${selectedRequest.id}`)}
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </Button>
+  variant="outline"
+  size="icon"
+  aria-label="Chat about this request"
+  onClick={() =>
+    navigate(`/chat?requestId=${selectedRequest.id}&sellerId=${selectedRequest.user_id}`)
+  }
+>
+  <MessageCircle className="w-4 h-4" />
+</Button>
+
                     </div>
                   </div>
                 </CardContent>

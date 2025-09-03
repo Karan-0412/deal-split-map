@@ -557,43 +557,63 @@ const ChatPage = () => {
   }, [chatRooms, selectedRoom, location.search]);
 
   useEffect(() => {
-    if (!user || chatRooms.length === 0) return;
-    const params = new URLSearchParams(location.search);
-    const requestId = params.get('requestId');
-    if (!requestId) return;
+  if (!user) return;
 
-    const ensureRoom = async () => {
-      const existing = chatRooms.find(r => r.request_id === requestId);
-      if (existing) {
-        setSelectedRoom(existing.id);
-        return;
-      }
+  const params = new URLSearchParams(location.search);
+  const requestId = params.get("requestId");
+  if (!requestId) return;
 
-      const { data: req } = await supabase
-        .from('requests')
-        .select('id, user_id')
-        .eq('id', requestId)
-        .single();
+  const ensureRoom = async () => {
+    // 🔎 1. Check if a room already exists in Supabase
+    const { data: existingRoom } = await supabase
+      .from("chat_rooms")
+      .select("*")
+      .eq("request_id", requestId)
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+      .maybeSingle();
 
-      if (!req) return;
+    if (existingRoom) {
+      // ✅ Found an existing room → use it
+      setSelectedRoom(existingRoom.id);
+      // push roomId into URL
+      window.history.replaceState({}, "", `/chat?roomId=${existingRoom.id}`);
+      return;
+    }
 
-      const buyerId = user.id;
-      const sellerId = req.user_id;
-      if (buyerId === sellerId) return;
+    // 🔎 2. Otherwise, fetch request to get sellerId
+    const { data: req } = await supabase
+      .from("requests")
+      .select("id, user_id")
+      .eq("id", requestId)
+      .single();
 
-      const { data: newRooms, error } = await supabase
-        .from('chat_rooms')
-        .insert({ request_id: requestId, buyer_id: buyerId, seller_id: sellerId })
-        .select('*');
+    if (!req) return;
 
-      if (!error && newRooms && newRooms[0]) {
-        await fetchChatRooms();
-        setSelectedRoom(newRooms[0].id);
-      }
-    };
+    const buyerId = user.id;
+    const sellerId = req.user_id;
+    if (buyerId === sellerId) return; // prevent self-chat
 
-    ensureRoom();
-  }, [location.search, user, chatRooms, fetchChatRooms]);
+    // 🔎 3. Create new room
+    const { data: newRooms, error } = await supabase
+      .from("chat_rooms")
+      .insert({
+        request_id: requestId,
+        buyer_id: buyerId,
+        seller_id: sellerId,
+      })
+      .select("*");
+
+    if (!error && newRooms && newRooms[0]) {
+      await fetchChatRooms();
+      setSelectedRoom(newRooms[0].id);
+      // push roomId into URL
+      window.history.replaceState({}, "", `/chat?roomId=${newRooms[0].id}`);
+    }
+  };
+
+  ensureRoom();
+}, [location.search, user, fetchChatRooms]);
+
 
   useEffect(() => {
     if (!selectedRoom) return;

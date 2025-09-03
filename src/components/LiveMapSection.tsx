@@ -1,22 +1,132 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Filter, Zap, Star, Clock, DollarSign } from "lucide-react";
-import { useState } from "react";
+import { MapPin, Filter, Zap, DollarSign, MessageCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
+import { useNavigate } from "react-router-dom";
+
+type Category = Database["public"]["Tables"]["categories"]["Row"];
+type Request = Database["public"]["Tables"]["requests"]["Row"] & {
+  categories: Category;
+};
 
 const LiveMapSection = () => {
-  const [selectedMarker, setSelectedMarker] = useState<any>(null);
+  const [allDeals, setAllDeals] = useState<Request[]>([]);
+  const [filteredDeals, setFilteredDeals] = useState<Request[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [category, setCategory] = useState<string>("All");
+  const [minPrice, setMinPrice] = useState<number | null>(null);
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  const [radius, setRadius] = useState<number>(2);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  // Mock data for demo
-  const mockRequest = {
-    id: 1,
-    product: "Premium Coffee Bundle",
-    price: "$24.99",
-    savings: "$12.50",
-    distance: "0.3 miles",
-    eta: "8 min walk",
-    rating: 4.8,
-    user: "Sarah K.",
-    thumbnail: "/api/placeholder/80/80"
+  useEffect(() => {
+    fetchCategories();
+    fetchAllDeals();
+    getUserLocation();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [allDeals, category, minPrice, maxPrice, radius, userLocation]);
+
+  const getUserLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        () => {
+          setUserLocation({ lat: 40.7128, lng: -74.006 }); // fallback NYC
+        }
+      );
+    } else {
+      setUserLocation({ lat: 40.7128, lng: -74.006 });
+    }
+  };
+
+  const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 3959; // miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase.from("categories").select("*").order("name");
+    if (!error && data) setCategories(data);
+  };
+
+  const fetchAllDeals = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("requests")
+        .select("*, categories (id, name, icon, color)")
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching deals:", error);
+        setAllDeals([]);
+      } else {
+        setAllDeals(data as Request[]);
+      }
+    } catch (err) {
+      console.error("Error fetching deals:", err);
+      setAllDeals([]);
+    }
+    setLoading(false);
+  };
+
+  const applyFilters = () => {
+    let filtered = [...allDeals];
+
+    // Category filter
+    if (category !== "All") {
+      filtered = filtered.filter((deal) => deal.categories?.id === category);
+    }
+
+    // Price filter
+    if (minPrice !== null) {
+      filtered = filtered.filter((deal) => (deal.budget_min || 0) >= minPrice);
+    }
+    if (maxPrice !== null) {
+      filtered = filtered.filter((deal) => (deal.budget_max || 0) <= maxPrice);
+    }
+
+    // Radius filter
+    if (userLocation && radius > 0) {
+      filtered = filtered.filter((deal) => {
+        if (deal.location_lat && deal.location_lng) {
+          const distance = calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            deal.location_lat,
+            deal.location_lng
+          );
+          return distance <= radius;
+        }
+        return true;
+      });
+    }
+
+    setFilteredDeals(filtered);
+  };
+
+  const handleRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRadius(parseInt(e.target.value));
   };
 
   return (
@@ -32,7 +142,7 @@ const LiveMapSection = () => {
         </div>
 
         <div className="grid lg:grid-cols-4 gap-6">
-          {/* Filter Controls */}
+          {/* Filter Panel */}
           <div className="lg:col-span-1">
             <Card className="shadow-card border-border">
               <CardHeader>
@@ -42,152 +152,139 @@ const LiveMapSection = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Radius */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Radius: 2 miles
-                  </label>
-                  <div className="w-full h-2 bg-secondary rounded-full">
-                    <div className="w-1/3 h-2 bg-primary rounded-full"></div>
+                  <label className="block text-sm font-medium mb-2">Radius: {radius} miles</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="50"
+                    value={radius}
+                    onChange={handleRadiusChange}
+                    className="w-full h-2 bg-secondary rounded-full appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>1 mi</span><span>50 mi</span>
                   </div>
                 </div>
-                
+
+                {/* Category */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Category
-                  </label>
-                  <select className="w-full p-2 border border-border rounded-lg bg-background text-foreground">
-                    <option>All Categories</option>
-                    <option>Food & Beverage</option>
-                    <option>Electronics</option>
-                    <option>Home & Garden</option>
+                  <label className="block text-sm font-medium mb-2">Category</label>
+                  <select
+                    className="w-full p-2 border border-border rounded-lg bg-background text-foreground"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    <option value="All">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Price */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Price Range
-                  </label>
+                  <label className="block text-sm font-medium mb-2">Price Range</label>
                   <div className="flex gap-2">
-                    <input 
-                      type="number" 
-                      placeholder="Min" 
-                      className="w-1/2 p-2 border border-border rounded-lg bg-background text-foreground"
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      className="w-1/2 p-2 border rounded-lg"
+                      value={minPrice ?? ""}
+                      onChange={(e) => setMinPrice(e.target.value ? parseFloat(e.target.value) : null)}
                     />
-                    <input 
-                      type="number" 
-                      placeholder="Max" 
-                      className="w-1/2 p-2 border border-border rounded-lg bg-background text-foreground"
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      className="w-1/2 p-2 border rounded-lg"
+                      value={maxPrice ?? ""}
+                      onChange={(e) => setMaxPrice(e.target.value ? parseFloat(e.target.value) : null)}
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 p-3 bg-accent-light rounded-lg">
+                {/* <div className="flex items-center gap-2 p-3 bg-accent-light rounded-lg">
                   <Zap className="w-4 h-4 text-accent" />
-                  <span className="text-sm font-medium text-accent-foreground">
-                    High match likelihood
-                  </span>
+                  <span className="text-sm font-medium">High match likelihood</span>
+                </div> */}
+
+                <div className="pt-2 border-t">
+                  <p className="text-sm text-muted-foreground">
+                    Showing {filteredDeals.length} of {allDeals.length} requests
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Map Area */}
+          {/* Deals */}
           <div className="lg:col-span-3">
-            <div className="relative">
-              {/* Map Placeholder */}
-              <div className="aspect-[16/10] rounded-2xl overflow-hidden shadow-card bg-gradient-to-br from-primary/5 to-accent/5 border border-border">
-                <div className="w-full h-full flex items-center justify-center bg-muted/20">
-                  <div className="text-center p-8">
-                    <h3 className="text-2xl font-semibold text-foreground mb-4">
-                      {/* LIVE_MAP_SECTION: insert Mapbox/GoogleMap component here */}
-                    </h3>
-                    <p className="text-muted-foreground mb-6 max-w-md">
-                      Interactive map with real-time markers showing user location and nearby share requests. 
-                      Click markers to view details and join requests.
-                    </p>
-                    
-                    {/* Mock Map Interface */}
-                    <div className="bg-background rounded-lg p-6 shadow-soft border border-border max-w-md mx-auto">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-3 h-3 bg-primary rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium text-foreground">You</span>
-                      </div>
-                      
-                      <div className="flex items-center gap-3 mb-4 cursor-pointer hover:bg-muted/50 p-2 rounded-lg transition-colors"
-                           onClick={() => setSelectedMarker(mockRequest)}>
-                        <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
-                          <MapPin className="w-4 h-4 text-accent-foreground" />
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-medium text-foreground">Coffee Bundle</p>
-                          <p className="text-xs text-muted-foreground">0.3 miles away</p>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-muted-foreground">
-                        + 12 more requests nearby
-                      </p>
-                    </div>
-                  </div>
-                </div>
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary inline-block"></div>
+                <p className="mt-2 text-muted-foreground">Loading deals...</p>
               </div>
+            ) : filteredDeals.length === 0 ? (
+              <div className="text-center py-12">
+                <MapPin className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p>No deals found matching your filters.</p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredDeals.map((deal) => {
+                  const distance = userLocation && deal.location_lat && deal.location_lng
+                    ? calculateDistance(userLocation.lat, userLocation.lng, deal.location_lat, deal.location_lng)
+                    : null;
 
-              {/* Request Detail Card - Appears when marker is clicked */}
-              {selectedMarker && (
-                <Card className="absolute top-4 right-4 w-80 shadow-card border-border bg-background">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                        <DollarSign className="w-8 h-8 text-primary" />
-                      </div>
-                      
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-foreground mb-1">
-                          {selectedMarker.product}
-                        </h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          by {selectedMarker.user}
-                        </p>
-                        
-                        <div className="grid grid-cols-2 gap-3 text-sm mb-4">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">{selectedMarker.distance}</span>
+                  return (
+                    <Card key={deal.id} className="shadow-card border-border hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                          <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
+                            <span className="text-2xl">{deal.categories?.icon}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3 text-muted-foreground" />
-                            <span className="text-muted-foreground">{selectedMarker.eta}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 text-accent" />
-                            <span className="text-muted-foreground">{selectedMarker.rating}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-primary font-semibold">Save {selectedMarker.savings}</span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold truncate">{deal.title || "Untitled Request"}</h4>
+                            <p className="text-sm text-muted-foreground mb-2">
+                              Budget: ${deal.budget_min} - ${deal.budget_max}
+                            </p>
+                            {deal.categories && (
+                              <span className="inline-block px-2 py-1 bg-secondary rounded-full text-xs">
+                                {deal.categories.name}
+                              </span>
+                            )}
+                            {distance && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                <MapPin className="w-3 h-3" />
+                                <span>{distance.toFixed(1)} miles away</span>
+                              </div>
+                            )}
+                            {deal.address && (
+                              <p className="text-xs text-muted-foreground truncate">{deal.address}</p>
+                            )}
+                            <div className="flex gap-2 mt-3">
+                              <Button size="sm" variant="hero" className="flex-1" >
+                                Join Request
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => navigate(`/chat?requestId=${deal.id}`)}
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="hero" className="flex-1">
-                            Join Request
-                          </Button>
-                          <Button size="sm" variant="outline">
-                            Message
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <button 
-                      onClick={() => setSelectedMarker(null)}
-                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-muted hover:bg-secondary flex items-center justify-center"
-                    >
-                      ×
-                    </button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -4,6 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { NotificationsProvider, useNotificationsContext } from "@/hooks/useNotifications";
+import { NotificationPopup } from "@/components/NotificationPopup";
+
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import MapPage from "./pages/MapPage";
@@ -12,14 +15,12 @@ import CategoriesPage from "./pages/CategoriesPage";
 import HowItWorksPage from "./pages/HowItWorksPage";
 import PostPage from "./pages/PostPage";
 import ProfilePage from "./pages/ProfilePage";
-import NotFound from "./pages/NotFound";
-import { NotificationsProvider, useNotificationsContext } from "@/hooks/useNotifications";
-import { NotificationPopup } from "@/components/NotificationPopup";
-import LiveDemoPage from "./pages/LiveDemoPage";  
+import LiveDemoPage from "./pages/LiveDemoPage";
 import AboutPage from "./pages/AboutPage";
 import HelpPage from "./pages/HelpPage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Contact from "./pages/ContactPage";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -40,15 +41,16 @@ const AppContent = () => {
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/post" element={<PostPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/demo" element={<LiveDemoPage />} />
+          <Route path="/live-demo" element={<LiveDemoPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/policy" element={<PrivacyPolicy />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          {/* Catch-all route MUST be last */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+
       {activeNotification && (
         <NotificationPopup
           isVisible={!!activeNotification}
@@ -56,7 +58,7 @@ const AppContent = () => {
           sender={{
             id: activeNotification.senderId,
             name: activeNotification.senderName,
-            avatar: activeNotification.senderAvatar
+            avatar: activeNotification.senderAvatar,
           }}
           message={activeNotification.message}
           onReply={handleReply}

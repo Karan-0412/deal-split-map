@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Filter, Zap, DollarSign, MessageCircle } from "lucide-react";
+import { MapPin, Filter, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useNavigate } from "react-router-dom";
@@ -156,13 +156,17 @@ const LiveMapSection = () => {
                 <div>
                   <label className="block text-sm font-medium mb-2">Radius: {radius} miles</label>
                   <input
-                    type="range"
-                    min="1"
-                    max="50"
-                    value={radius}
-                    onChange={handleRadiusChange}
-                    className="w-full h-2 bg-secondary rounded-full appearance-none cursor-pointer"
-                  />
+  type="range"
+  min="1"
+  max="50"
+  value={radius}
+  onChange={handleRadiusChange}
+  className="w-full h-2 rounded-full appearance-none cursor-pointer"
+  style={{
+    background: `linear-gradient(to right, #22c55e ${(radius / 50) * 100}%, #e5e7eb ${(radius / 50) * 100}%)`,
+  }}
+/>
+
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>1 mi</span><span>50 mi</span>
                   </div>
@@ -206,11 +210,6 @@ const LiveMapSection = () => {
                   </div>
                 </div>
 
-                {/* <div className="flex items-center gap-2 p-3 bg-accent-light rounded-lg">
-                  <Zap className="w-4 h-4 text-accent" />
-                  <span className="text-sm font-medium">High match likelihood</span>
-                </div> */}
-
                 <div className="pt-2 border-t">
                   <p className="text-sm text-muted-foreground">
                     Showing {filteredDeals.length} of {allDeals.length} requests
@@ -220,7 +219,7 @@ const LiveMapSection = () => {
             </Card>
           </div>
 
-          {/* Deals */}
+          {/* Deals List Panel */}
           <div className="lg:col-span-3">
             {loading ? (
               <div className="text-center py-12">
@@ -233,57 +232,91 @@ const LiveMapSection = () => {
                 <p>No deals found matching your filters.</p>
               </div>
             ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredDeals.map((deal) => {
-                  const distance = userLocation && deal.location_lat && deal.location_lng
-                    ? calculateDistance(userLocation.lat, userLocation.lng, deal.location_lat, deal.location_lng)
-                    : null;
+              <Card className="shadow-card border-border">
+                <CardHeader>
+                  <CardTitle className="text-lg">Available Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div
+    className="space-y-4 max-h-[600px] overflow-y-auto pr-2"
+    style={{
+      scrollbarWidth: "none",        // Firefox
+      msOverflowStyle: "none",       // IE/Edge
+    }}
+  >
+    <style>
+      {`
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        div::-webkit-scrollbar {
+          display: none;
+        }
+      `}
+    </style>
+                    {filteredDeals.map((deal) => {
+                      const distance =
+                        userLocation && deal.location_lat && deal.location_lng
+                          ? calculateDistance(
+                              userLocation.lat,
+                              userLocation.lng,
+                              deal.location_lat,
+                              deal.location_lng
+                            )
+                          : null;
 
-                  return (
-                    <Card key={deal.id} className="shadow-card border-border hover:shadow-lg transition-shadow">
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-4">
-                          <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                            <span className="text-2xl">{deal.categories?.icon}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold truncate">{deal.title || "Untitled Request"}</h4>
-                            <p className="text-sm text-muted-foreground mb-2">
-                              Budget: ${deal.budget_min} - ${deal.budget_max}
-                            </p>
-                            {deal.categories && (
-                              <span className="inline-block px-2 py-1 bg-secondary rounded-full text-xs">
-                                {deal.categories.name}
-                              </span>
-                            )}
-                            {distance && (
-                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                <MapPin className="w-3 h-3" />
-                                <span>{distance.toFixed(1)} miles away</span>
+                      return (
+                        <Card
+                          key={deal.id}
+                          className="shadow-sm border border-border hover:shadow-md transition-shadow"
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-4">
+                              <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center">
+                                <span className="text-xl">{deal.categories?.icon}</span>
                               </div>
-                            )}
-                            {deal.address && (
-                              <p className="text-xs text-muted-foreground truncate">{deal.address}</p>
-                            )}
-                            <div className="flex gap-2 mt-3">
-                              <Button size="sm" variant="hero" className="flex-1" >
-                                Join Request
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => navigate(`/chat?requestId=${deal.id}`)}
-                              >
-                                <MessageCircle className="w-4 h-4" />
-                              </Button>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold truncate">
+                                  {deal.title || "Untitled Request"}
+                                </h4>
+                                <p className="text-sm text-muted-foreground mb-1">
+                                  Budget: ${deal.budget_min} - ${deal.budget_max}
+                                </p>
+                                {deal.categories && (
+                                  <span className="inline-block px-2 py-1 bg-secondary rounded-full text-xs">
+                                    {deal.categories.name}
+                                  </span>
+                                )}
+                                {distance && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
+                                    <MapPin className="w-3 h-3" />
+                                    <span>{distance.toFixed(1)} miles away</span>
+                                  </div>
+                                )}
+                                {deal.address && (
+                                  <p className="text-xs text-muted-foreground truncate">
+                                    {deal.address}
+                                  </p>
+                                )}
+                                <div className="flex gap-2 mt-3 justify-end">
+                                  <Button size="sm" className="w-60 bg-primary text-white hover:bg-primary/90">
+                                    Join Request
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => navigate(`/chat?requestId=${deal.id}`)}
+                                  >
+                                    <MessageCircle className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>

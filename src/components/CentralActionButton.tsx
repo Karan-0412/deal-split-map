@@ -22,7 +22,7 @@ const CentralActionButton = () => {
           className="glassmorphism-button relative overflow-hidden"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          initial={{ opacity: 0, scale: 0 }}
+          initial={{ opacity: 0,y: 250, scale: 0 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ 
             duration: 0.5, 
@@ -72,8 +72,8 @@ const CentralActionButton = () => {
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.8 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
+              initial={{ opacity: 0, y: 250, scale: 0.8 }}
+              animate={{ opacity: 1, y: 250, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.8 }}
               transition={{ duration: 0.3, type: "spring" }}
               className="absolute bottom-full right-0 mb-4 w-64"

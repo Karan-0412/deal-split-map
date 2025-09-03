@@ -15,6 +15,7 @@ import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 import { NotificationsProvider, useNotificationsContext } from "@/hooks/useNotifications";
 import { NotificationPopup } from "@/components/NotificationPopup";
+import LiveDemoPage from "./pages/LiveDemoPage";  
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const AppContent = () => {
           <Route path="/how-it-works" element={<HowItWorksPage />} />
           <Route path="/post" element={<PostPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/demo" element={<LiveDemoPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

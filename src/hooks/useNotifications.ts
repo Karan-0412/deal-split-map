@@ -240,8 +240,9 @@ export const useNotifications = () => {
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-  };
+  setNotifications([]);
+};
+
 
   return {
     notifications,

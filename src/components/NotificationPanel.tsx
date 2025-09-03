@@ -136,7 +136,10 @@ const NotificationPanel = () => {
 									</div>
 								</div>
 							</div>
-							<CardContent className="p-0 max-h-96 overflow-y-auto">
+							<CardContent className="p-0 max-h-96 overflow-y-auto 
+              [&::-webkit-scrollbar]:hidden 
+              [-ms-overflow-style:'none'] 
+              [scrollbar-width:'none']">
 								{notifications.length === 0 ? (
 									<div className="p-8 text-center">
 										<Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />

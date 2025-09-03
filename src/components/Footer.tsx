@@ -1,6 +1,6 @@
 import { Facebook, Twitter, Instagram, Mail } from "lucide-react";
 import { useLocation } from "react-router-dom";
-
+import { Link } from "react-router-dom";
 const Footer = () => {
   const location = useLocation();
 
@@ -48,7 +48,10 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-4">Product</h4>
             <ul className="space-y-3 text-background/70">
-              <li><a href="/how-it-works" className="hover:text-background transition-colors">How it works</a></li>
+              <li>
+                <Link to = "/how-it-works">
+                <p className="hover:text-background transition-colors">How it works</p></Link>
+              </li>
               <li>
                 <a
                   href="/#security"
@@ -65,8 +68,13 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-4">Company</h4>
             <ul className="space-y-3 text-background/70">
-              <li><a href="/about.html" className="hover:text-background transition-colors">About us</a></li>
-             <li><a href="/privacy.html" className="hover:text-background transition-colors">Privacy Policy</a></li>
+              <li><Link to= "/about">
+              <p className="hover:text-background transition-colors">About us</p>
+              </Link></li>
+             <li>
+              <Link to = "/policy">
+              <p className="hover:text-background transition-colors">Privacy Policy</p></Link>
+             </li>
 
             </ul>
           </div>
@@ -75,8 +83,14 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-4">Support</h4>
             <ul className="space-y-3 text-background/70">
-              <li><a href="/help.html" className="hover:text-background transition-colors">Help Center</a></li>
-              <li><a href="/contact.html" className="hover:text-background transition-colors">Contact us</a></li>
+              <li>
+                <Link to = "/help">
+                <p className="hover:text-background transition-colors">Help Center</p></Link>
+              </li>
+              <li>
+                <Link to = "/contact">
+                <p className="hover:text-background transition-colors">Contact us</p></Link>
+              </li>
             </ul>
           </div>
         </div>

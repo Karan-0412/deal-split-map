@@ -13,13 +13,13 @@ import HowItWorksPage from "./pages/HowItWorksPage";
 import PostPage from "./pages/PostPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
-import { useNotifications } from "@/hooks/useNotifications";
+import { NotificationsProvider, useNotificationsContext } from "@/hooks/useNotifications";
 import { NotificationPopup } from "@/components/NotificationPopup";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const { activeNotification, dismissNotification, handleReply } = useNotifications();
+  const { activeNotification, dismissNotification, handleReply } = useNotificationsContext();
 
   return (
     <>
@@ -39,8 +39,6 @@ const AppContent = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
-      
-      {/* Global Notification Popup */}
       {activeNotification && (
         <NotificationPopup
           isVisible={!!activeNotification}
@@ -62,7 +60,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <AppContent />
+        <NotificationsProvider>
+          <AppContent />
+        </NotificationsProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

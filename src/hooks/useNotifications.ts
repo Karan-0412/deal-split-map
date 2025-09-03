@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
 
 export interface Notification {
   id: string;
@@ -12,21 +11,49 @@ export interface Notification {
   message: string;
   timestamp: Date;
   isRead: boolean;
+  chatRoomId?: string;
 }
+
+interface NotificationsValue {
+  notifications: Notification[];
+  activeNotification: Notification | null;
+  dismissNotification: () => void;
+  handleReply: (message: string) => Promise<void> | void;
+  sendReply: (notification: Notification, message: string) => Promise<void>;
+  markAsRead: (notificationId: string) => void;
+  markAllAsRead: () => void;
+  openReplyPopup: (notification: Notification) => void;
+  removeNotification: (notificationId: string) => void;
+}
+
+const NotificationsContext = createContext<NotificationsValue | undefined>(undefined);
+
+export const NotificationsProvider = ({ children }: { children: ReactNode }) => {
+  const value = useNotifications();
+  return React.createElement(NotificationsContext.Provider, { value }, children as any);
+};
+
+export const useNotificationsContext = (): NotificationsValue => {
+  const ctx = useContext(NotificationsContext);
+  if (!ctx) {
+    // Fallback to a local instance if no provider is present
+    return useNotifications();
+  }
+  return ctx;
+};
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeNotification, setActiveNotification] = useState<Notification | null>(null);
   const { user } = useAuth();
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!user) return;
 
-    const setupNotifications = async () => {
-      console.log('Setting up notifications for user:', user.id);
-      
-      // Get all chat rooms the user is part of
+    let chatRoomIds = new Set<string>();
+
+    const setup = async () => {
+      // Load chat rooms for current user
       const { data: rooms, error: roomsError } = await supabase
         .from('chat_rooms')
         .select('id, buyer_id, seller_id')
@@ -34,13 +61,55 @@ export const useNotifications = () => {
 
       if (roomsError) {
         console.error('Error fetching chat rooms:', roomsError);
-        return;
+        return null;
       }
 
-      const chatRoomIds = new Set<string>();
-      if (rooms) {
-        rooms.forEach((room: any) => chatRoomIds.add(room.id));
-        console.log('Monitoring chat rooms:', Array.from(chatRoomIds));
+      chatRoomIds = new Set<string>((rooms || []).map((r: any) => r.id));
+
+      // Load recent messages (not sent by the user) as initial notifications
+      if (chatRoomIds.size > 0) {
+        const { data: msgs, error: msgsError } = await supabase
+          .from('messages')
+          .select('id, chat_room_id, sender_id, message, created_at')
+          .in('chat_room_id', Array.from(chatRoomIds))
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (msgsError) {
+          console.error('Error fetching messages:', msgsError);
+        } else if (msgs) {
+          // Fetch profiles for senders in one pass
+          const senderIds = Array.from(new Set(msgs.map(m => m.sender_id).filter((id) => id !== user.id)));
+          let profilesByUserId: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+          if (senderIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('user_id, display_name, avatar_url')
+              .in('user_id', senderIds);
+            (profiles || []).forEach((p: any) => {
+              profilesByUserId[p.user_id] = { display_name: p.display_name, avatar_url: p.avatar_url };
+            });
+          }
+
+          const initialNotifications: Notification[] = msgs
+            .filter(m => m.sender_id !== user.id)
+            .map((m) => {
+              const profile = profilesByUserId[m.sender_id] || {};
+              return {
+                id: `msg_${m.id}`,
+                type: 'message',
+                senderId: m.sender_id,
+                senderName: (profile as any).display_name || 'Unknown User',
+                senderAvatar: (profile as any).avatar_url || undefined,
+                message: m.message,
+                timestamp: new Date(m.created_at),
+                isRead: false,
+                chatRoomId: m.chat_room_id,
+              } as Notification;
+            });
+
+          setNotifications(initialNotifications);
+        }
       }
 
       // Subscribe to new messages
@@ -55,7 +124,6 @@ export const useNotifications = () => {
           },
           async (payload) => {
             try {
-              console.log('New message received:', payload.new);
               const msg = payload.new as {
                 id: string;
                 chat_room_id: string;
@@ -64,27 +132,14 @@ export const useNotifications = () => {
                 created_at: string;
               };
 
-              // Ignore if not in user's rooms or if it's the user's own message
-              if (!chatRoomIds.has(msg.chat_room_id)) {
-                console.log('Message not in monitored rooms');
-                return;
-              }
-              
-              if (msg.sender_id === user.id) {
-                console.log('Ignoring own message');
-                return;
-              }
+              if (!chatRoomIds.has(msg.chat_room_id)) return;
+              if (msg.sender_id === user.id) return;
 
-              console.log('Processing notification for message:', msg.id);
-
-              // Fetch sender profile
               const { data: profile } = await supabase
                 .from('profiles')
                 .select('display_name, avatar_url')
                 .eq('user_id', msg.sender_id)
                 .single();
-
-              console.log('Sender profile:', profile);
 
               const newNotification: Notification = {
                 id: `msg_${msg.id}`,
@@ -95,28 +150,14 @@ export const useNotifications = () => {
                 message: msg.message,
                 timestamp: new Date(msg.created_at),
                 isRead: false,
+                chatRoomId: msg.chat_room_id,
               };
-
-              console.log('Creating notification:', newNotification);
 
               setNotifications((prev) => [newNotification, ...prev]);
               setActiveNotification(newNotification);
 
-              // Show toast notification as backup
-              toast({
-                title: `New message from ${newNotification.senderName}`,
-                description: newNotification.message,
-              });
-
-              // Notify BOGO to react
-              window.dispatchEvent(
-                new CustomEvent('bogo:new-message', { detail: { notification: newNotification } })
-              );
-
-              console.log('Notification set, will auto-hide in 8 seconds');
-              // Auto-hide after 5 seconds
+              // Auto-hide after 8 seconds
               setTimeout(() => {
-                console.log('Auto-hiding notification');
                 setActiveNotification(null);
               }, 8000);
             } catch (e) {
@@ -126,35 +167,61 @@ export const useNotifications = () => {
         )
         .subscribe();
 
-      console.log('Subscribed to notifications channel');
-      
       return channel;
     };
 
-    const channelPromise = setupNotifications();
+    const channelPromise = setup();
 
     return () => {
       channelPromise.then((channel) => {
-        if (channel) {
-          console.log('Cleaning up notifications channel');
-          supabase.removeChannel(channel);
-        }
+        if (channel) supabase.removeChannel(channel);
       });
     };
   }, [user]);
 
   const dismissNotification = () => {
-    console.log('Dismissing notification');
     setActiveNotification(null);
+  };
+
+  const openReplyPopup = (notification: Notification) => {
+    setActiveNotification(notification);
+  };
+
+  const sendReply = async (notification: Notification, message: string) => {
+    if (!user) return;
+    try {
+      if (notification.chatRoomId) {
+        const { error } = await supabase.from('messages').insert({
+          chat_room_id: notification.chatRoomId,
+          sender_id: user.id,
+          message,
+          message_type: 'text'
+        });
+        if (error) throw error;
+      } else {
+        const { data: rooms, error: roomsError } = await supabase
+          .from('chat_rooms')
+          .select('id, buyer_id, seller_id')
+          .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
+        if (roomsError) throw roomsError;
+        const room = (rooms || []).find((r: any) => r.buyer_id === notification.senderId || r.seller_id === notification.senderId);
+        if (!room) throw new Error('Chat room not found for reply');
+        const { error } = await supabase.from('messages').insert({
+          chat_room_id: room.id,
+          sender_id: user.id,
+          message,
+          message_type: 'text'
+        });
+        if (error) throw error;
+      }
+    } catch (e) {
+      console.error('Failed to send reply:', e);
+    }
   };
 
   const handleReply = async (message: string) => {
     if (!activeNotification || !user) return;
-    
-    console.log('Handling reply:', message);
-    // Send reply (this would need proper chat room logic)
-    
-    // For demo purposes, just dismiss
+    await sendReply(activeNotification, message);
     setActiveNotification(null);
   };
 
@@ -168,11 +235,23 @@ export const useNotifications = () => {
     );
   };
 
+  const removeNotification = (notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  };
+
   return {
     notifications,
     activeNotification,
     dismissNotification,
     handleReply,
-    markAsRead
+    sendReply,
+    markAsRead,
+    markAllAsRead,
+    openReplyPopup,
+    removeNotification,
   };
 };

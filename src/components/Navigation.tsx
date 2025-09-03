@@ -1,14 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Menu, X, Bell, MessageCircle } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Menu, X, MessageCircle } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import NotificationPanel from "./NotificationPanel";
 import { generateAvatarColor } from "@/lib/avatar-utils";
-import { NotificationPopup } from "./NotificationPopup";
+
 // Navigation component with simplified auth
 
 interface NavLinkProps {
@@ -36,33 +35,8 @@ const NavLink = ({ to, label, icon: Icon }: NavLinkProps) => {
 
 const Navigation = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (user) {
-      fetchUnreadNotifications();
-      subscribeToNotifications();
-    }
-    
-  }, [user]);
-
-  const fetchUnreadNotifications = async () => {
-    if (!user) return;
-    // For demo purposes, mock some notifications
-    setUnreadNotifications(2);
-  };
-
-  const subscribeToNotifications = () => {
-    // For demo purposes, no real subscription needed
-    return () => {};
-  };
-
-  const handleMarkAllNotificationsRead = () => {
-    setUnreadNotifications(0);
-  };
 
   return (
     <nav className="sticky top-0 z-50 glass border-b border-border/20">
@@ -94,11 +68,8 @@ const Navigation = () => {
             ) : user ? (
               <>
                 {/* Notifications */}
-                <NotificationPanel 
-                  unreadCount={unreadNotifications}
-                  onMarkAllRead={handleMarkAllNotificationsRead}
-                />
-                
+                <NotificationPanel />
+
                 {/* Profile Avatar */}
                 <Link 
                   to="/profile"
@@ -163,7 +134,6 @@ const Navigation = () => {
                 </Link>
               )}
 
-              
               <div className="flex flex-col space-y-2 pt-4 border-t border-border/20">
                 {user ? (
                   <>
@@ -179,10 +149,7 @@ const Navigation = () => {
                         </Avatar>
                         <span>Profile</span>
                       </Link>
-                      <NotificationPanel 
-                        unreadCount={unreadNotifications}
-                        onMarkAllRead={handleMarkAllNotificationsRead}
-                      />
+                      <NotificationPanel />
                     </div>
                   </>
                 ) : (

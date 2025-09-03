@@ -4,7 +4,7 @@ import { X, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { generateAvatarColor } from "@/lib/avatar-utils";
 
 interface NotificationPopupProps {
@@ -55,7 +55,7 @@ export const NotificationPopup = ({
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
           >
-            <Card className="glass-card border border-white/20 shadow-2xl backdrop-blur-md bg-white/10">
+            <Card className="glass-card border border-white/20 shadow-2xl backdrop-blur-md bg-white/10 animate-enter">
               {/* Header */}
               <div className="flex items-start justify-between p-4 pb-2">
                 <div className="flex items-center space-x-3">
@@ -64,14 +64,20 @@ export const NotificationPopup = ({
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.2, type: "spring" }}
                   >
-                    <Avatar className="w-10 h-10 ring-2 ring-white/20">
-                      <AvatarFallback 
-                        className="text-white font-semibold"
-                        style={{ backgroundColor: avatarColor }}
-                      >
-                        {sender.name.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar className="w-10 h-10 ring-2 ring-white/20">
+                        {sender.avatar && (
+                          <AvatarImage src={sender.avatar} alt={`${sender.name}'s avatar`} />
+                        )}
+                        <AvatarFallback 
+                          className="text-white font-semibold"
+                          style={{ backgroundColor: avatarColor }}
+                        >
+                          {sender.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-primary pulse" />
+                    </div>
                   </motion.div>
                   <div>
                     <h3 className="font-semibold text-white text-sm">

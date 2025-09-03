@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   User, 
   Mail, 
@@ -60,6 +63,11 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'all'>('active');
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formBio, setFormBio] = useState("");
+  const [formAvatarUrl, setFormAvatarUrl] = useState("");
 
   useEffect(() => {
     if (user?.id) {
@@ -67,6 +75,15 @@ const ProfilePage = () => {
       fetchUserPosts();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (profile) {
+      setFormName(profile.username || "");
+      setFormEmail(profile.email || "");
+      setFormBio(profile.bio || "");
+      setFormAvatarUrl(profile.avatar_url || "");
+    }
+  }, [profile]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -206,6 +223,36 @@ const ProfilePage = () => {
     return true;
   });
 
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    try {
+      // Update auth email if changed
+      if (formEmail && formEmail !== profile?.email) {
+        const { error: emailError } = await supabase.auth.updateUser({ email: formEmail });
+        if (emailError) throw emailError;
+      }
+
+      // Upsert profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          display_name: formName,
+          bio: formBio,
+          avatar_url: formAvatarUrl,
+          updated_at: new Date().toISOString(),
+        });
+      if (profileError) throw profileError;
+
+      toast({ title: 'Profile updated', description: 'Your profile has been updated successfully.' });
+      setIsEditOpen(false);
+      fetchProfile();
+    } catch (e: any) {
+      console.error('Update profile error:', e);
+      toast({ title: 'Update failed', description: e.message || 'Could not update profile', variant: 'destructive' });
+    }
+  };
+
   if (loading || !profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background/50 to-primary/5">
@@ -303,7 +350,7 @@ const ProfilePage = () => {
                   </div>
 
                   <div className="flex flex-col gap-3 mt-6">
-                    <Button className="w-full">
+                    <Button className="w-full" onClick={() => setIsEditOpen(true)}>
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Profile
                     </Button>
@@ -430,6 +477,36 @@ const ProfilePage = () => {
             </motion.div>
           </div>
         </div>
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Profile</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-muted-foreground">Name</label>
+              <Input value={formName} onChange={(e) => setFormName(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Email</label>
+              <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">Changing email may require confirmation.</p>
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Bio</label>
+              <Textarea value={formBio} onChange={(e) => setFormBio(e.target.value)} rows={4} />
+            </div>
+            <div>
+              <label className="text-sm text-muted-foreground">Avatar URL</label>
+              <Input value={formAvatarUrl} onChange={(e) => setFormAvatarUrl(e.target.value)} placeholder="https://..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveProfile}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </main>
     </div>
   );

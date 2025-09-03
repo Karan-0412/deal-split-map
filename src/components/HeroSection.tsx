@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Spline from "@splinetool/react-spline";
 import { ArrowRight, Play } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -35,6 +35,44 @@ const Button = ({
 export default function HeroSection() {
   const [thought, setThought] = useState<string | null>(null);
   const [isHovering, setIsHovering] = useState(false);
+  const [isDinging, setIsDinging] = useState(false);
+  const isDingingRef = useRef(false);
+
+  useEffect(() => {
+    const handler = () => {
+      if (isDingingRef.current) return;
+      isDingingRef.current = true;
+      setIsDinging(true);
+
+      // Ding sound via Web Audio API
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = 880; // A5
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+        setTimeout(() => ctx.close(), 800);
+      } catch (e) {
+        console.log('Audio init error', e);
+      }
+
+      setTimeout(() => {
+        isDingingRef.current = false;
+        setIsDinging(false);
+      }, 1800);
+    };
+
+    window.addEventListener('bogo:new-message', handler as EventListener);
+    return () => window.removeEventListener('bogo:new-message', handler as EventListener);
+  }, []);
 
   const cuteMessages = [
     "Hehe 😋, nice to see you!",
@@ -133,6 +171,16 @@ export default function HeroSection() {
 
       {/* Hero Content */}
       <div className="relative z-30 flex flex-col items-center justify-end text-center h-full px-6 pb-20">
+        {isDinging && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: [1, 1.08, 1], opacity: 1 }}
+            transition={{ duration: 0.8 }}
+            className="absolute -top-10 left-1/2 -translate-x-1/2 rounded-full bg-primary/20 ring-2 ring-primary/30 px-4 py-1 text-xs"
+          >
+            Ding!
+          </motion.div>
+        )}
         <div className="flex flex-col sm:flex-row gap-4 justify-baseline">
           <Button
             variant="hero"

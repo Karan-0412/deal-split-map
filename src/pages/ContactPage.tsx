@@ -19,7 +19,7 @@ const TEAM: TeamMember[] = [
     id: "1",
     name: "Ava Stone",
     role: "Founder & CEO",
-    bio: "Building connections and making sharing simple.",
+    bio: "Building connections and making sharing simple. Also a professional coffee taste-tester.",
     avatar: "/placeholder.svg",
     links: { linkedin: "https://www.linkedin.com/", instagram: "https://www.instagram.com/", github: "https://github.com/" },
   },
@@ -27,7 +27,7 @@ const TEAM: TeamMember[] = [
     id: "2",
     name: "Liam Chen",
     role: "Lead Engineer",
-    bio: "Crafting performant maps and delightful UX.",
+    bio: "Crafting performant maps and delightful UX. Rumored to debug with sheer stare alone.",
     avatar: "/placeholder.svg",
     links: { linkedin: "https://www.linkedin.com/", github: "https://github.com/" },
   },
@@ -35,7 +35,7 @@ const TEAM: TeamMember[] = [
     id: "3",
     name: "Maya Patel",
     role: "Product Designer",
-    bio: "Designing intuitive experiences and visuals.",
+    bio: "Designing intuitive experiences and visuals. Draws icons in their sleep.",
     avatar: "/placeholder.svg",
     links: { instagram: "https://www.instagram.com/" },
   },
@@ -43,7 +43,7 @@ const TEAM: TeamMember[] = [
     id: "4",
     name: "Noah Rivera",
     role: "Community Lead",
-    bio: "Connecting users and growing our community.",
+    bio: "Connecting users and growing our community. Official meme curator.",
     avatar: "/placeholder.svg",
     links: { linkedin: "https://www.linkedin.com/" },
   },
@@ -57,7 +57,7 @@ const Contact: React.FC = () => {
       <div className="container mx-auto px-4 py-12">
         <motion.header initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-10">
           <h1 className="text-4xl font-bold">Contact & Team</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Get in touch or meet the team behind DealSplit. Follow us on social media or send a message below.</p>
+          <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Have a question, a compliment, or a suspiciously great snack recommendation? We read everything (yes, even the haikus). Say hi below — humans and bots both welcome.</p>
         </motion.header>
 
         <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-12">

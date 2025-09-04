@@ -1,4 +1,5 @@
 import React, { useRef } from "react";
+import React, { useRef } from "react";
 import Navigation from "@/components/Navigation";
 import { motion } from "framer-motion";
 import { ShieldCheck, Clock, User, Globe, Database } from "lucide-react";

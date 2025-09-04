@@ -22,6 +22,15 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Contact from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    // Smooth scroll to top on route change
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [pathname]);
+  return null;
+};
+
 const queryClient = new QueryClient();
 
 const AppContent = () => {

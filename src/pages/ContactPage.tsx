@@ -19,7 +19,7 @@ const TEAM: TeamMember[] = [
     role: "Founder & CEO",
     bio: "Building connections and making sharing simple. Also a professional coffee taste-tester.",
     avatar: "/placeholder.svg",
-    links: { linkedin: "https://www.linkedin.com/", instagram: "https://www.instagram.com/", github: "https://github.com/" },
+    links: { linkedin: "#", instagram: "#", github: "#" },
   },
   {
     id: "2",
@@ -27,7 +27,7 @@ const TEAM: TeamMember[] = [
     role: "Lead Engineer",
     bio: "Crafting performant maps and delightful UX. Rumored to debug with sheer stare alone.",
     avatar: "/placeholder.svg",
-    links: { linkedin: "https://www.linkedin.com/", github: "https://github.com/" },
+    links: { linkedin: "#", instagram: "#", github: "#" },
   },
   {
     id: "3",
@@ -35,7 +35,7 @@ const TEAM: TeamMember[] = [
     role: "Product Designer",
     bio: "Designing intuitive experiences and visuals. Draws icons in their sleep.",
     avatar: "/placeholder.svg",
-    links: { instagram: "https://www.instagram.com/" },
+    links: { linkedin: "#", instagram: "#", github: "#" },
   },
   {
     id: "4",
@@ -43,7 +43,15 @@ const TEAM: TeamMember[] = [
     role: "Community Lead",
     bio: "Connecting users and growing our community. Official meme curator.",
     avatar: "/placeholder.svg",
-    links: { linkedin: "https://www.linkedin.com/" },
+    links: { linkedin: "#", instagram: "#", github: "#" },
+  },
+  {
+    id: "5",
+    name: "Zara Kim",
+    role: "Growth Engineer",
+    bio: "Finds the best partnerships and the best snack combos.",
+    avatar: "/placeholder.svg",
+    links: { linkedin: "#", instagram: "#", github: "#" },
   },
 ];
 

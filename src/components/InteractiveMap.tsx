@@ -106,12 +106,14 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     const initMap = async () => {
       try {
         const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
-        const loader = new Loader({
-          apiKey,
-          version: 'weekly',
-          libraries: ['places'],
-        });
-        await loader.load();
+        const libraries = ['maps', 'places'];
+
+        // If Google Maps already loaded, don't call Loader again with different options
+        if (!(window as any).google || !(window as any).google.maps) {
+          const loader = new Loader({ apiKey, version: 'weekly', libraries });
+          await loader.load();
+        }
+
         if (!mapRef.current) return;
 
         const map = new google.maps.Map(mapRef.current, {

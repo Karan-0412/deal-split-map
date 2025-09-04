@@ -33,22 +33,21 @@ const getCategoryColor = (name?: string | null, fallback?: string | null) => {
   return fallback || '#22c55e';
 };
 
-// Build a DOM element containing an inline SVG pin with a circular clipped image on top
+// Build a DOM element containing an inline SVG teardrop pin with the product photo clipped inside the main circle
 function createPhotoPinElement(options: {
   color: string;
   photoUrl: string;
-  size?: number; // base diameter of pin circle
-  smallCircleSize?: number; // diameter of the photo circle
+  size?: number; // diameter of the circular head
 }): HTMLDivElement {
-  const { color, photoUrl, size = 40, smallCircleSize = 18 } = options;
-  const svgWidth = size + 8; // include stroke/shadow space
-  const svgHeight = size + 22; // include pointer and top photo circle
-  const mainR = size / 2;
+  const { color, photoUrl, size = 44 } = options;
+  const headR = size / 2;
+  const svgWidth = size + 8;
+  const svgHeight = size + 28; // extra for the tail
   const cx = svgWidth / 2;
-  const cy = svgHeight / 2 + 4; // slight shift to look balanced
-  const topCircleR = smallCircleSize / 2;
-  const topCx = cx + mainR - topCircleR - 6;
-  const topCy = cy - mainR + topCircleR - 6;
+  const cy = headR + 4; // head center
+
+  const pointerHeight = 20;
+  const tailY = cy + headR + pointerHeight;
 
   const container = document.createElement('div');
   container.style.position = 'relative';
@@ -60,24 +59,25 @@ function createPhotoPinElement(options: {
     <svg width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="dropShadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.25)"/>
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.22)"/>
         </filter>
         <clipPath id="photoClip">
-          <circle cx="${topCx}" cy="${topCy}" r="${topCircleR}" />
+          <circle cx="${cx}" cy="${cy}" r="${headR - 6}" />
         </clipPath>
       </defs>
 
-      <!-- Main colored circle -->
-      <circle cx="${cx}" cy="${cy}" r="${mainR}" fill="${color}" stroke="#ffffff" stroke-width="3" filter="url(#dropShadow)" />
+      <!-- Teardrop body: circular head + smooth pointed tail -->
+      <path d="M ${cx} ${cy - headR}
+               A ${headR} ${headR} 0 1 1 ${cx - 0.01} ${cy - headR}
+               L ${cx} ${tailY} Z"
+            fill="${color}" stroke="#ffffff" stroke-width="3" filter="url(#dropShadow)" />
 
-      <!-- Pointer triangle -->
-      <path d="M ${cx - 8} ${cy + mainR - 2} L ${cx + 8} ${cy + mainR - 2} L ${cx} ${cy + mainR + 12} Z" fill="${color}" stroke="#ffffff" stroke-width="2" filter="url(#dropShadow)" />
+      <!-- Photo clipped inside head -->
+      <circle cx="${cx}" cy="${cy}" r="${headR - 6}" fill="#ffffff" />
+      <image href="${photoUrl}" x="${cx - (headR - 6)}" y="${cy - (headR - 6)}" width="${(headR - 6) * 2}" height="${(headR - 6) * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)" />
 
-      <!-- Top photo circle border -->
-      <circle cx="${topCx}" cy="${topCy}" r="${topCircleR + 2}" fill="#ffffff" />
-
-      <!-- Photo clipped to circle -->
-      <image href="${photoUrl}" x="${topCx - topCircleR}" y="${topCy - topCircleR}" width="${smallCircleSize}" height="${smallCircleSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#photoClip)" />
+      <!-- White ring around photo -->
+      <circle cx="${cx}" cy="${cy}" r="${headR - 3}" fill="none" stroke="#ffffff" stroke-width="3" />
     </svg>
   `;
 

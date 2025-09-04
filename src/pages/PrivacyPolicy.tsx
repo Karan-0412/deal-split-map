@@ -83,7 +83,7 @@ const PrivacyPolicy: React.FC = () => {
           </motion.article>
         </motion.section>
 
-        <section className="max-w-4xl mx-auto">
+        <section ref={contentRef} className="max-w-4xl mx-auto">
           <div className="bg-card/90 border border-border/30 rounded-2xl p-6 mb-6">
             <h2 className="text-2xl font-semibold mb-3">What we collect</h2>
             <ul className="list-disc ml-5 text-muted-foreground space-y-2">

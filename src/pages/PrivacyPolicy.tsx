@@ -135,7 +135,7 @@ const PrivacyPolicy: React.FC = () => {
             <div className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</div>
             <div className="flex items-center gap-3">
               <a href="mailto:privacy@example.com" className="text-primary font-semibold">privacy@example.com</a>
-              <button className="text-sm px-3 py-1 rounded bg-muted/80 hover:bg-muted transition">Download PDF</button>
+              <button onClick={downloadPdf} className="text-sm px-3 py-1 rounded bg-muted/80 hover:bg-muted transition">Download PDF</button>
             </div>
           </div>
         </section>

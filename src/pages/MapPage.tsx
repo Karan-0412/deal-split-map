@@ -132,15 +132,16 @@ const MapPage = () => {
   };
 
   const initializeMap = async () => {
-    const loader = new Loader({
-      apiKey: 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc', // We'll need to add this as a secret
-      version: 'weekly',
-      libraries: ['maps', 'places']
-    });
+    const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc';
+    const libraries = ['maps', 'places'];
 
     try {
-      await loader.load();
-      
+      // Only load the script if google maps isn't already present
+      if (!(window as any).google || !(window as any).google.maps) {
+        const loader = new Loader({ apiKey, version: 'weekly', libraries });
+        await loader.load();
+      }
+
       if (mapRef.current) {
         const initialCenter = { lat: 37.7749, lng: -122.4194 };
         const map = new google.maps.Map(mapRef.current, {

@@ -267,28 +267,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     <div className="relative">
       <div ref={mapRef} className="w-full h-[400px] rounded-xl bg-gray-900" />
 
-      {showLegend && uniqueCategories.length > 0 && (
-        <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg max-w-[220px]">
-          <h4 className="font-semibold text-sm mb-2 text-gray-800">Categories</h4>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs">
-              <div className="w-6 h-6 rounded-full bg-purple-500 border-2 border-white flex items-center justify-center">
-                <span className="text-white text-xs font-bold">•</span>
-              </div>
-              <span className="text-gray-700">Your Location</span>
-            </div>
-            {uniqueCategories.map((category) => (
-              <div key={category.id} className="flex items-center gap-2 text-xs">
-                <div
-                  className="w-6 h-6 rounded-full border-2 border-white"
-                  style={{ backgroundColor: getCategoryColor(category.name, category.color) }}
-                />
-                <span className="text-gray-700 truncate">{category.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900/60 rounded-xl">

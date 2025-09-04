@@ -229,14 +229,22 @@ const MapPage = () => {
       const categoryIcon = request.categories.icon;
       
       const requestPinSvg = `
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="44" height="60" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <filter id="shadow-${request.id}" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0, 0, 0, 0.2)"/>
+            <filter id="shadow-${request.id}" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.25)"/>
             </filter>
           </defs>
-          <circle cx="18" cy="18" r="14" fill="${categoryColor}" stroke="white" stroke-width="2" filter="url(#shadow-${request.id})"/>
-          <text x="18" y="22" text-anchor="middle" font-size="14">${categoryIcon}</text>
+
+          <!-- Teardrop body -->
+          <path d="M22 6
+                    A16 16 0 1 1 21.99 6
+                    L22 46 Z"
+                fill="${categoryColor}" stroke="#ffffff" stroke-width="3" filter="url(#shadow-${request.id})"/>
+
+          <!-- Head circle for icon/text -->
+          <circle cx="22" cy="22" r="14" fill="#ffffff" />
+          <text x="22" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="${categoryColor}">${categoryIcon}</text>
         </svg>
       `;
 
@@ -249,8 +257,8 @@ const MapPage = () => {
         title: request.title,
         icon: {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(requestPinSvg)}`,
-          scaledSize: new google.maps.Size(36, 36),
-          anchor: new google.maps.Point(18, 32)
+          scaledSize: new google.maps.Size(44, 60),
+          anchor: new google.maps.Point(22, 56)
         }
       });
 

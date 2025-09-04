@@ -93,7 +93,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<Array<google.maps.marker.AdvancedMarkerElement>>([]);
+  const markersRef = useRef<google.maps.Marker[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -108,7 +108,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
         const loader = new Loader({
           apiKey,
           version: 'weekly',
-          libraries: ['places', 'marker'],
+          libraries: ['places'],
         });
         await loader.load();
         if (!mapRef.current) return;
@@ -138,17 +138,23 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     if (!isLoaded || !mapInstanceRef.current) return;
 
     // Clear existing markers
-    markersRef.current.forEach((m) => m.map = null);
+    markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
     // Add user marker
     if (userLocation) {
       const userImg = userProfile?.avatar_url || DEFAULT_PLACEHOLDER;
-      const userPin = createPhotoPinElement({ color: '#8b5cf6', photoUrl: userImg, size: 44, smallCircleSize: 18 });
-      const userMarker = new google.maps.marker.AdvancedMarkerElement({
-        map: mapInstanceRef.current,
+      const userPinEl = createPhotoPinElement({ color: '#8b5cf6', photoUrl: userImg, size: 44, smallCircleSize: 18 });
+      const userSvg = userPinEl.innerHTML;
+      const userMarker = new google.maps.Marker({
+        map: mapInstanceRef.current!,
         position: userLocation,
-        content: userPin,
+        title: userProfile?.display_name || 'You',
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(userSvg)}`,
+          scaledSize: new google.maps.Size(44, 66),
+          anchor: new google.maps.Point(22, 60),
+        },
         zIndex: 1000,
       });
 
@@ -161,7 +167,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
         `,
       });
 
-      userMarker.addListener('click', () => userInfo.open({ map: mapInstanceRef.current!, anchor: userMarker }));
+      userMarker.addListener('click', () => userInfo.open(mapInstanceRef.current!, userMarker));
+      userMarker.addListener('mouseover', () => userMarker.setZIndex(1001));
+      userMarker.addListener('mouseout', () => userMarker.setZIndex(1000));
       markersRef.current.push(userMarker);
     }
 
@@ -175,10 +183,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       const photoUrl = (request as any).product_image_url || DEFAULT_PLACEHOLDER;
 
       const pinEl = createPhotoPinElement({ color: categoryColor, photoUrl, size: 40, smallCircleSize: 18 });
-      const marker = new google.maps.marker.AdvancedMarkerElement({
+      const svg = pinEl.innerHTML;
+      const marker = new google.maps.Marker({
         map: mapInstanceRef.current!,
         position: { lat, lng },
-        content: pinEl,
+        title: request.title,
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+          scaledSize: new google.maps.Size(40, 60),
+          anchor: new google.maps.Point(20, 56),
+        },
       });
 
       const distance = userLocation
@@ -216,17 +230,12 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       });
 
       marker.addListener('click', () => {
-        infoWindow.open({ map: mapInstanceRef.current!, anchor: marker });
+        infoWindow.open(mapInstanceRef.current!, marker);
         onMarkerClick?.(request);
       });
 
-      // Hover scale effect
-      marker.addListener('mouseover', () => {
-        (pinEl as HTMLElement).style.transform = 'scale(1.06) translateY(-6px)';
-      });
-      marker.addListener('mouseout', () => {
-        (pinEl as HTMLElement).style.transform = 'scale(1) translateY(-6px)';
-      });
+      marker.addListener('mouseover', () => marker.setZIndex(999));
+      marker.addListener('mouseout', () => marker.setZIndex(undefined));
 
       markersRef.current.push(marker);
     });

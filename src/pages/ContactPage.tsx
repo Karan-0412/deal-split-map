@@ -1,6 +1,4 @@
 import React from "react";
-
-import React from "react";
 import Navigation from "@/components/Navigation";
 import { Linkedin, Instagram, Github, Mail } from "lucide-react";
 import { motion } from "framer-motion";

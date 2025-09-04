@@ -6,43 +6,69 @@ import { ShieldCheck, Clock, User, Globe, Database } from "lucide-react";
 const PrivacyPolicy: React.FC = () => {
   const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const downloadPdf = () => {
-    try {
-      const content = contentRef.current;
-      if (!content) return;
+  const downloadPdf = async () => {
+    const content = contentRef.current;
+    if (!content) return;
 
-      const newWindow = window.open('', '_blank');
-      if (!newWindow) {
-        alert('Unable to open new window for PDF. Please allow popups and try again.');
-        return;
+    // Dynamically load html2canvas and jsPDF from CDN if not present
+    const loadScript = (src: string) => new Promise<void>((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) return resolve();
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(s);
+    });
+
+    try {
+      // html2canvas and jspdf UMD urls
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+
+      // @ts-ignore
+      const html2canvas = (window as any).html2canvas;
+      // @ts-ignore
+      const { jsPDF } = (window as any).jspdf || (window as any).window && (window as any).window.jspdf ? (window as any).window : (window as any);
+
+      if (!html2canvas || !jsPDF) {
+        throw new Error('Required libraries are not available');
       }
 
-      const doc = newWindow.document;
-      doc.open();
-      doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Privacy Policy</title>');
+      const originalBg = content.style.backgroundColor;
+      // Ensure white background for PDF
+      (content as HTMLElement).style.background = '#ffffff';
 
-      // Copy all current styles (link and style tags)
-      const styleNodes = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')) as HTMLElement[];
-      styleNodes.forEach((node) => {
-        doc.write(node.outerHTML);
-      });
+      const canvas = await html2canvas(content as HTMLElement, { scale: 2, useCORS: true, allowTaint: true });
+      const imgData = canvas.toDataURL('image/png');
 
-      // Minimal body reset for printing
-      doc.write('<style>body{background:transparent;color:#111;font-family:Inter, system-ui, sans-serif;padding:20px;} img{max-width:100%;height:auto;} .no-print{display:none;}</style>');
+      // Restore background
+      (content as HTMLElement).style.background = originalBg || '';
 
-      doc.write('</head><body>');
-      doc.write(content.outerHTML);
-      doc.write('</body></html>');
-      doc.close();
-      newWindow.focus();
+      // Create jsPDF and add the image
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Delay to allow styles to load
-      setTimeout(() => {
-        newWindow.print();
-      }, 600);
+      // Calculate image dimensions to fit A4 while preserving aspect ratio
+      const img = new Image();
+      img.src = imgData;
+      await new Promise<void>((res) => { img.onload = () => res(); });
+
+      const imgWidth = img.width;
+      const imgHeight = img.height;
+      const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+      const drawWidth = imgWidth * ratio;
+      const drawHeight = imgHeight * ratio;
+      const x = (pageWidth - drawWidth) / 2;
+      const y = 40; // top margin
+
+      pdf.addImage(imgData, 'PNG', x, y, drawWidth, drawHeight);
+
+      // Trigger download without redirect
+      pdf.save('dealsplit-privacy-policy.pdf');
     } catch (err) {
       console.error('PDF generation failed', err);
-      alert('Failed to prepare PDF. You can use the browser print dialog as a fallback.');
+      alert('Failed to generate PDF automatically. Please use the browser print dialog as a fallback.');
     }
   };
 

@@ -83,21 +83,15 @@ const Contact: React.FC = () => {
               <p className="text-sm text-muted-foreground mt-2">{member.bio}</p>
 
               <div className="flex items-center gap-3 mt-3">
-                {member.links?.linkedin && (
-                  <a href={member.links.linkedin} target="_blank" rel="noreferrer" className="p-2 rounded-full bg-muted/10 hover:bg-muted transition text-muted-foreground">
-                    <Linkedin className="w-4 h-4" />
-                  </a>
-                )}
-                {member.links?.instagram && (
-                  <a href={member.links.instagram} target="_blank" rel="noreferrer" className="p-2 rounded-full bg-muted/10 hover:bg-muted transition text-muted-foreground">
-                    <Instagram className="w-4 h-4" />
-                  </a>
-                )}
-                {member.links?.github && (
-                  <a href={member.links.github} target="_blank" rel="noreferrer" className="p-2 rounded-full bg-muted/10 hover:bg-muted transition text-muted-foreground">
-                    <Github className="w-4 h-4" />
-                  </a>
-                )}
+                <a href={member.links?.linkedin || '#'} target="_blank" rel="noreferrer" aria-label={`${member.name} LinkedIn`} className="p-2 rounded-full bg-muted/10 hover:bg-muted transition text-muted-foreground">
+                  <Linkedin className="w-4 h-4" />
+                </a>
+                <a href={member.links?.instagram || '#'} target="_blank" rel="noreferrer" aria-label={`${member.name} Instagram`} className="p-2 rounded-full bg-muted/10 hover:bg-muted transition text-muted-foreground">
+                  <Instagram className="w-4 h-4" />
+                </a>
+                <a href={member.links?.github || '#'} target="_blank" rel="noreferrer" aria-label={`${member.name} GitHub`} className="p-2 rounded-full bg-muted/10 hover:bg-muted transition text-muted-foreground">
+                  <Github className="w-4 h-4" />
+                </a>
               </div>
             </motion.div>
           ))}

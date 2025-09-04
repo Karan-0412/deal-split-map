@@ -397,7 +397,28 @@
   border-radius: 50%;
   background: hsl(var(--primary));
   cursor: pointer;
+  border: 2px solid hsl(var(--background));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.range-slider::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Scrollbar Styles */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
   border: 2px solid white;
 }
 

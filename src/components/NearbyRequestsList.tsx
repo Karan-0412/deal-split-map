@@ -49,7 +49,7 @@ const NearbyRequestsList: React.FC<NearbyRequestsListProps> = ({
         Nearby Requests ({requests.length})
       </h3>
       
-      <div className="space-y-3">
+      <div className="max-h-[400px] overflow-y-auto scrollbar-hide space-y-3 pr-2">
         {visibleRequests.map((request) => {
           const distance = userLocation && request.location_lat && request.location_lng
             ? calculateDistance(
@@ -65,12 +65,18 @@ const NearbyRequestsList: React.FC<NearbyRequestsListProps> = ({
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
                   <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold"
+                    className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-semibold relative overflow-hidden"
                     style={{ 
                       background: `linear-gradient(135deg, ${request.categories?.color || '#22c55e'} 0%, ${request.categories?.color || '#22c55e'}80 100%)`
                     }}
                   >
-                    <span className="text-lg">{request.categories?.icon || '📦'}</span>
+                    <span className="text-lg relative z-10">{request.categories?.icon || '📦'}</span>
+                    <div 
+                      className="absolute inset-0 opacity-20"
+                      style={{ 
+                        background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.3) 0%, transparent 50%)`
+                      }}
+                    />
                   </div>
                   
                   <div className="flex-1 min-w-0">
@@ -93,7 +99,10 @@ const NearbyRequestsList: React.FC<NearbyRequestsListProps> = ({
                     </div>
                     
                     {request.categories && (
-                      <span className="inline-block px-2 py-1 bg-secondary/80 rounded-full text-xs mt-2">
+                      <span 
+                        className="inline-block px-2 py-1 rounded-full text-xs mt-2 text-white"
+                        style={{ backgroundColor: `${request.categories.color}30`, color: request.categories.color }}
+                      >
                         {request.categories.name}
                       </span>
                     )}

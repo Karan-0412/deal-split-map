@@ -224,6 +224,22 @@ const MapPage = () => {
     window.googleMapMarkers = [];
 
     filteredRequests.forEach(request => {
+      // Create custom pin with category color and icon  
+      const categoryColor = request.categories.color;
+      const categoryIcon = request.categories.icon;
+      
+      const requestPinSvg = `
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="shadow-${request.id}" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0, 0, 0, 0.2)"/>
+            </filter>
+          </defs>
+          <circle cx="18" cy="18" r="14" fill="${categoryColor}" stroke="white" stroke-width="2" filter="url(#shadow-${request.id})"/>
+          <text x="18" y="22" text-anchor="middle" font-size="14">${categoryIcon}</text>
+        </svg>
+      `;
+
       const marker = new google.maps.Marker({
         position: {
           lat: Number(request.location_lat),
@@ -232,13 +248,9 @@ const MapPage = () => {
         map: mapInstanceRef.current,
         title: request.title,
         icon: {
-          url: `data:image/svg+xml,${encodeURIComponent(`
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="16" cy="16" r="12" fill="${request.categories.color}" stroke="white" stroke-width="2"/>
-              <text x="16" y="20" text-anchor="middle" fill="white" font-size="16">${request.categories.icon}</text>
-            </svg>
-          `)}`,
-          scaledSize: new google.maps.Size(32, 32)
+          url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(requestPinSvg)}`,
+          scaledSize: new google.maps.Size(36, 36),
+          anchor: new google.maps.Point(18, 32)
         }
       });
 
@@ -413,8 +425,8 @@ const MapPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Map */}
           <div className="lg:col-span-2">
-            <Card className="overflow-hidden">
-              <div ref={mapRef} className="w-full h-[600px] bg-muted" />
+            <Card className="overflow-hidden p-4">
+              <div ref={mapRef} className="w-full h-[600px] bg-muted rounded-xl" />
             </Card>
           </div>
 

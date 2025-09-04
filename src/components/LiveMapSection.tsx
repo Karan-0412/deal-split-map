@@ -163,6 +163,7 @@ const LiveMapSection = () => {
                     userLocation={userLocation}
                     requests={filteredDeals}
                     onMarkerClick={(request) => console.log('Marker clicked:', request)}
+                    showLegend={true}
                   />
                 )}
               </CardContent>

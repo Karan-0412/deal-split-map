@@ -32,17 +32,42 @@ const FAQS: { question: string; answer: string }[] = [
   },
 ];
 
+const STORAGE_KEY = "helpbot_history_v1";
 const generateId = () => Math.random().toString(36).slice(2, 9);
 
 const HelpPage: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([{
-    id: generateId(),
-    sender: "bot",
-    text: "Hi! I'm HelpBot. Ask me anything or choose a suggested question below.",
-  }]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Message[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load helpbot history:', err);
+    }
+
+    // default greeting
+    setMessages([{ id: generateId(), sender: "bot", text: "Hi! I'm HelpBot. Ask me anything or choose a suggested question below." }]);
+  }, []);
+
+  // Save to localStorage whenever messages change
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (err) {
+      console.error('Failed to save helpbot history:', err);
+    }
+  }, [messages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,7 +75,6 @@ const HelpPage: React.FC = () => {
 
   const replyFromBot = (userText: string) => {
     setIsTyping(true);
-    // simple FAQ matching
     const found = FAQS.find((f) => f.question.toLowerCase() === userText.toLowerCase());
     const answer = found
       ? found.answer
@@ -75,15 +99,30 @@ const HelpPage: React.FC = () => {
     replyFromBot(q);
   };
 
+  const clearHistory = () => {
+    setMessages([{ id: generateId(), sender: "bot", text: "Hi! I'm HelpBot. Ask me anything or choose a suggested question below." }]);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (err) {
+      console.error('Failed to clear helpbot history:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto bg-card/90 shadow-card rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-border/30 bg-gradient-to-r from-gray-900 to-gray-800">
-            <h1 className="text-xl font-semibold">HelpBot</h1>
-            <p className="text-sm text-muted-foreground">Chat with our FAQ bot to get quick answers.</p>
+          <div className="p-4 border-b border-border/30 bg-gradient-to-r from-gray-900 to-gray-800 flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-semibold">HelpBot</h1>
+              <p className="text-sm text-muted-foreground">Chat with our FAQ bot to get quick answers.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={clearHistory} className="text-sm px-3 py-1 rounded bg-muted/80 hover:bg-muted transition">Clear Chat</button>
+              <span className="text-xs text-muted-foreground">Saved locally</span>
+            </div>
           </div>
 
           <div className="flex">

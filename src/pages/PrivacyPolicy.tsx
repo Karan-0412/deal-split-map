@@ -1,9 +1,51 @@
-import React from "react";
+import React, { useRef } from "react";
 import Navigation from "@/components/Navigation";
 import { motion } from "framer-motion";
 import { ShieldCheck, Clock, User, Globe, Database } from "lucide-react";
 
 const PrivacyPolicy: React.FC = () => {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  const downloadPdf = () => {
+    try {
+      const content = contentRef.current;
+      if (!content) return;
+
+      const newWindow = window.open('', '_blank');
+      if (!newWindow) {
+        alert('Unable to open new window for PDF. Please allow popups and try again.');
+        return;
+      }
+
+      const doc = newWindow.document;
+      doc.open();
+      doc.write('<!doctype html><html><head><meta charset="utf-8"><title>Privacy Policy</title>');
+
+      // Copy all current styles (link and style tags)
+      const styleNodes = Array.from(document.querySelectorAll('link[rel="stylesheet"], style')) as HTMLElement[];
+      styleNodes.forEach((node) => {
+        doc.write(node.outerHTML);
+      });
+
+      // Minimal body reset for printing
+      doc.write('<style>body{background:transparent;color:#111;font-family:Inter, system-ui, sans-serif;padding:20px;} img{max-width:100%;height:auto;} .no-print{display:none;}</style>');
+
+      doc.write('</head><body>');
+      doc.write(content.outerHTML);
+      doc.write('</body></html>');
+      doc.close();
+      newWindow.focus();
+
+      // Delay to allow styles to load
+      setTimeout(() => {
+        newWindow.print();
+      }, 600);
+    } catch (err) {
+      console.error('PDF generation failed', err);
+      alert('Failed to prepare PDF. You can use the browser print dialog as a fallback.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />

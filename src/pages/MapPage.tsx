@@ -170,9 +170,21 @@ const MapPage = () => {
 
         // Run once after a short delay in case container was hidden during navigation
         setTimeout(ensureRender, 200);
+        setTimeout(ensureRender, 600);
+        setTimeout(ensureRender, 1200);
 
         // Also ensure after tiles load
         map.addListener('idle', ensureRender);
+
+        // Use ResizeObserver to call ensureRender when the map container changes size
+        try {
+          const ro = new ResizeObserver(() => {
+            ensureRender();
+          });
+          ro.observe(mapRef.current!);
+        } catch (e) {
+          // ResizeObserver may not be available in some envs - ignore
+        }
 
         // Try to get user's location and recenter
         if (navigator.geolocation) {

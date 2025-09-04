@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Filter, MessageCircle } from "lucide-react";
+import { Filter } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
-import { useNavigate } from "react-router-dom";
+import InteractiveMap from "./InteractiveMap";
+import NearbyRequestsList from "./NearbyRequestsList";
 
 type Category = Database["public"]["Tables"]["categories"]["Row"];
 type Request = Database["public"]["Tables"]["requests"]["Row"] & {
@@ -21,7 +21,6 @@ const LiveMapSection = () => {
   const [radius, setRadius] = useState<number>(2);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
     fetchCategories();
@@ -141,34 +140,62 @@ const LiveMapSection = () => {
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
-          {/* Filter Panel */}
-          <div className="lg:col-span-1">
-            <Card className="shadow-card border-border">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Interactive Map */}
+          <div className="lg:col-span-2">
+            <Card className="shadow-card border-border/50 bg-card/90 backdrop-blur-sm overflow-hidden">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg text-foreground">Live Map</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Real-time view of nearby share requests
+                </p>
+              </CardHeader>
+              <CardContent className="p-0">
+                {loading ? (
+                  <div className="h-[400px] flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 rounded-b-xl">
+                    <div className="text-white text-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                      <p>Loading map...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <InteractiveMap
+                    userLocation={userLocation}
+                    requests={filteredDeals}
+                    onMarkerClick={(request) => console.log('Marker clicked:', request)}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Filters & Requests List */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Filters */}
+            <Card className="shadow-card border-border/50 bg-card/90 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="w-5 h-5 text-primary" />
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Filter className="w-4 h-4 text-primary" />
                   Filters
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Radius */}
                 <div>
-                  <label className="block text-sm font-medium mb-2">Radius: {radius} miles</label>
+                  <label className="block text-sm font-medium mb-2">
+                    Radius: {radius} miles
+                  </label>
                   <input
-  type="range"
-  min="1"
-  max="50"
-  value={radius}
-  onChange={handleRadiusChange}
-  className="w-full h-2 rounded-full appearance-none cursor-pointer"
-  style={{
-    background: `linear-gradient(to right, #22c55e ${(radius / 50) * 100}%, #e5e7eb ${(radius / 50) * 100}%)`,
-  }}
-/>
-
+                    type="range"
+                    min="1"
+                    max="50"
+                    value={radius}
+                    onChange={handleRadiusChange}
+                    className="w-full h-2 bg-gradient-to-r from-primary to-primary/30 rounded-full appearance-none cursor-pointer range-slider"
+                  />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>1 mi</span><span>50 mi</span>
+                    <span>1 mi</span>
+                    <span>50 mi</span>
                   </div>
                 </div>
 
@@ -176,7 +203,7 @@ const LiveMapSection = () => {
                 <div>
                   <label className="block text-sm font-medium mb-2">Category</label>
                   <select
-                    className="w-full p-2 border border-border rounded-lg bg-background text-foreground"
+                    className="w-full p-2 border border-border rounded-lg bg-background/80 backdrop-blur-sm text-foreground focus:ring-2 focus:ring-primary/20 transition-all"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
@@ -196,128 +223,45 @@ const LiveMapSection = () => {
                     <input
                       type="number"
                       placeholder="Min"
-                      className="w-1/2 p-2 border rounded-lg"
+                      className="w-1/2 p-2 border border-border rounded-lg bg-background/80 backdrop-blur-sm focus:ring-2 focus:ring-primary/20 transition-all"
                       value={minPrice ?? ""}
                       onChange={(e) => setMinPrice(e.target.value ? parseFloat(e.target.value) : null)}
                     />
                     <input
                       type="number"
                       placeholder="Max"
-                      className="w-1/2 p-2 border rounded-lg"
+                      className="w-1/2 p-2 border border-border rounded-lg bg-background/80 backdrop-blur-sm focus:ring-2 focus:ring-primary/20 transition-all"
                       value={maxPrice ?? ""}
                       onChange={(e) => setMaxPrice(e.target.value ? parseFloat(e.target.value) : null)}
                     />
                   </div>
                 </div>
 
-                <div className="pt-2 border-t">
+                <div className="pt-2 border-t border-border/50">
                   <p className="text-sm text-muted-foreground">
                     Showing {filteredDeals.length} of {allDeals.length} requests
                   </p>
                 </div>
               </CardContent>
             </Card>
-          </div>
 
-          {/* Deals List Panel */}
-          <div className="lg:col-span-3">
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary inline-block"></div>
-                <p className="mt-2 text-muted-foreground">Loading deals...</p>
-              </div>
-            ) : filteredDeals.length === 0 ? (
-              <div className="text-center py-12">
-                <MapPin className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-                <p>No deals found matching your filters.</p>
-              </div>
-            ) : (
-              <Card className="shadow-card border-border">
-                <CardHeader>
-                  <CardTitle className="text-lg">Available Requests</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div
-    className="space-y-4 max-h-[600px] overflow-y-auto pr-2"
-    style={{
-      scrollbarWidth: "none",        // Firefox
-      msOverflowStyle: "none",       // IE/Edge
-    }}
-  >
-    <style>
-      {`
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        div::-webkit-scrollbar {
-          display: none;
-        }
-      `}
-    </style>
-                    {filteredDeals.map((deal) => {
-                      const distance =
-                        userLocation && deal.location_lat && deal.location_lng
-                          ? calculateDistance(
-                              userLocation.lat,
-                              userLocation.lng,
-                              deal.location_lat,
-                              deal.location_lng
-                            )
-                          : null;
-
-                      return (
-                        <Card
-                          key={deal.id}
-                          className="shadow-sm border border-border hover:shadow-md transition-shadow"
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-4">
-                              <div className="w-14 h-14 bg-muted rounded-lg flex items-center justify-center">
-                                <span className="text-xl">{deal.categories?.icon}</span>
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold truncate">
-                                  {deal.title || "Untitled Request"}
-                                </h4>
-                                <p className="text-sm text-muted-foreground mb-1">
-                                  Budget: ${deal.budget_min} - ${deal.budget_max}
-                                </p>
-                                {deal.categories && (
-                                  <span className="inline-block px-2 py-1 bg-secondary rounded-full text-xs">
-                                    {deal.categories.name}
-                                  </span>
-                                )}
-                                {distance && (
-                                  <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                    <MapPin className="w-3 h-3" />
-                                    <span>{distance.toFixed(1)} miles away</span>
-                                  </div>
-                                )}
-                                {deal.address && (
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    {deal.address}
-                                  </p>
-                                )}
-                                <div className="flex gap-2 mt-3 justify-end">
-                                  <Button size="sm" className="w-60 bg-primary text-white hover:bg-primary/90">
-                                    Join Request
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => navigate(`/chat?requestId=${deal.id}`)}
-                                  >
-                                    <MessageCircle className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+            {/* Nearby Requests List */}
+            <Card className="shadow-card border-border/50 bg-card/90 backdrop-blur-sm">
+              <CardContent className="p-4">
+                {loading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading requests...</p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                ) : (
+                  <NearbyRequestsList
+                    requests={filteredDeals}
+                    userLocation={userLocation}
+                    maxVisible={3}
+                  />
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>

@@ -94,6 +94,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const currentInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -160,14 +161,18 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       const userInfo = new google.maps.InfoWindow({
         content: `
-          <div class="p-3 text-center">
-            <div class="font-semibold text-purple-600 text-lg">${userProfile?.display_name || 'You'}</div>
-            <div class="text-sm text-gray-600 mt-1">Your current location</div>
+          <div style="padding:12px;min-width:180px;text-align:center;font-family:Inter, system-ui, sans-serif;">
+            <div style="font-weight:600;color:#7c3aed;font-size:16px;">${userProfile?.display_name || 'You'}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:6px;">Your current location</div>
           </div>
         `,
       });
 
-      userMarker.addListener('click', () => userInfo.open(mapInstanceRef.current!, userMarker));
+      userMarker.addListener('click', () => {
+        if (currentInfoWindowRef.current) currentInfoWindowRef.current.close();
+        currentInfoWindowRef.current = userInfo;
+        userInfo.open(mapInstanceRef.current!, userMarker);
+      });
       userMarker.addListener('mouseover', () => userMarker.setZIndex(1001));
       userMarker.addListener('mouseout', () => userMarker.setZIndex(1000));
       markersRef.current.push(userMarker);
@@ -201,35 +206,34 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       const infoWindow = new google.maps.InfoWindow({
         content: `
-          <div class="p-4 min-w-[250px]">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-10 h-10 rounded-full overflow-hidden ring-2 ring-white" style="background:#f3f4f6">
-                <img src="${photoUrl}" alt="Product" style="width:100%;height:100%;object-fit:cover" onerror="this.src='${DEFAULT_PLACEHOLDER}'" />
+          <div style="padding:14px;min-width:230px;font-family:Inter, system-ui, sans-serif;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+              <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;background:#f3f4f6;border:2px solid #fff;flex-shrink:0">
+                <img src="${photoUrl}" alt="Product" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.src='${DEFAULT_PLACEHOLDER}'" />
               </div>
-              <div>
-                <h3 class="font-semibold text-lg">${request.title}</h3>
-                <p class="text-sm text-gray-600">${request.categories?.name || 'General'}</p>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;font-size:15px;color:#111827;line-height:1.1;">${request.title}</div>
+                <div style="font-size:13px;color:#6b7280;margin-top:4px;">${request.categories?.name || 'General'}</div>
               </div>
             </div>
-            <div class="space-y-2 mb-4">
-              <div class="flex items-center gap-2 text-sm">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span class="text-gray-600">${distance} miles away</span>
+            <div style="margin-bottom:10px;font-size:13px;color:#374151">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0"/><circle cx="12" cy="10" r="3"/></svg>
+                <span>${distance} miles away</span>
               </div>
-              ${(request.budget_min || request.budget_max) ? `
-              <div class="flex items-center gap-2 text-sm">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                <span class="font-semibold" style="color:${categoryColor}">$${request.budget_min ?? ''}${request.budget_max ? ` - $${request.budget_max}` : ''}</span>
-              </div>` : ''}
+              ${ (request.budget_min || request.budget_max) ? `<div style="display:flex;align-items:center;gap:8px;color:${categoryColor};font-weight:600">$${request.budget_min ?? ''}${request.budget_max ? ` - $${request.budget_max}` : ''}</div>` : ''}
             </div>
-            <button onclick="window.handleJoinRequest('${request.id}')" class="w-full text-white px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90 active:scale-95" style="background:${categoryColor}">
-              Join Request
-            </button>
+            <button onclick="window.handleJoinRequest('${request.id}')" style="width:100%;background:${categoryColor};color:#fff;border-radius:8px;padding:10px 12px;border:none;font-weight:600;cursor:pointer">Join Request</button>
           </div>
         `,
       });
 
       marker.addListener('click', () => {
+        // Close previous InfoWindow first
+        if (currentInfoWindowRef.current) {
+          currentInfoWindowRef.current.close();
+        }
+        currentInfoWindowRef.current = infoWindow;
         infoWindow.open(mapInstanceRef.current!, marker);
         onMarkerClick?.(request);
       });

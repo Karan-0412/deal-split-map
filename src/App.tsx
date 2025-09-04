@@ -1,8 +1,9 @@
 import { Toaster } from "@/components/ui/toaster";
+import React from 'react';
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { NotificationsProvider, useNotificationsContext } from "@/hooks/useNotifications";
 import { NotificationPopup } from "@/components/NotificationPopup";
@@ -22,6 +23,15 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Contact from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  React.useEffect(() => {
+    // Smooth scroll to top on route change
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [pathname]);
+  return null;
+};
+
 const queryClient = new QueryClient();
 
 const AppContent = () => {
@@ -32,6 +42,7 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />

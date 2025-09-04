@@ -132,18 +132,20 @@ const MapPage = () => {
   };
 
   const initializeMap = async () => {
-    const loader = new Loader({
-      apiKey: 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc', // We'll need to add this as a secret
-      version: 'weekly',
-      libraries: ['maps', 'places']
-    });
+    const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc';
+    const libraries = ['maps', 'places'];
 
     try {
-      await loader.load();
-      
+      // Only load the script if google maps isn't already present
+      if (!(window as any).google || !(window as any).google.maps) {
+        const loader = new Loader({ apiKey, version: 'weekly', libraries });
+        await loader.load();
+      }
+
       if (mapRef.current) {
-        mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-          center: { lat: 37.7749, lng: -122.4194 }, // Default to San Francisco
+        const initialCenter = { lat: 37.7749, lng: -122.4194 };
+        const map = new google.maps.Map(mapRef.current, {
+          center: initialCenter, // Default to San Francisco
           zoom: 12,
           styles: [
             {
@@ -154,7 +156,38 @@ const MapPage = () => {
           ]
         });
 
-        // Try to get user's location
+        mapInstanceRef.current = map;
+
+        // Helper to trigger resize and re-center (useful when navigating via client router)
+        const ensureRender = () => {
+          try {
+            google.maps.event.trigger(map, 'resize');
+            const c = map.getCenter();
+            if (c) map.setCenter(c);
+          } catch (e) {
+            // ignore
+          }
+        };
+
+        // Run once after a short delay in case container was hidden during navigation
+        setTimeout(ensureRender, 200);
+        setTimeout(ensureRender, 600);
+        setTimeout(ensureRender, 1200);
+
+        // Also ensure after tiles load
+        map.addListener('idle', ensureRender);
+
+        // Use ResizeObserver to call ensureRender when the map container changes size
+        try {
+          const ro = new ResizeObserver(() => {
+            ensureRender();
+          });
+          ro.observe(mapRef.current!);
+        } catch (e) {
+          // ResizeObserver may not be available in some envs - ignore
+        }
+
+        // Try to get user's location and recenter
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -162,7 +195,8 @@ const MapPage = () => {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
               };
-              mapInstanceRef.current?.setCenter(pos);
+              map.setCenter(pos);
+              setTimeout(ensureRender, 150);
             }
           );
         }
@@ -229,14 +263,22 @@ const MapPage = () => {
       const categoryIcon = request.categories.icon;
       
       const requestPinSvg = `
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="44" height="60" viewBox="0 0 44 60" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <filter id="shadow-${request.id}" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0, 0, 0, 0.2)"/>
+            <filter id="shadow-${request.id}" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="rgba(0,0,0,0.25)"/>
             </filter>
           </defs>
-          <circle cx="18" cy="18" r="14" fill="${categoryColor}" stroke="white" stroke-width="2" filter="url(#shadow-${request.id})"/>
-          <text x="18" y="22" text-anchor="middle" font-size="14">${categoryIcon}</text>
+
+          <!-- Teardrop body -->
+          <path d="M22 6
+                    A16 16 0 1 1 21.99 6
+                    L22 46 Z"
+                fill="${categoryColor}" stroke="#ffffff" stroke-width="3" filter="url(#shadow-${request.id})"/>
+
+          <!-- Head circle for icon/text -->
+          <circle cx="22" cy="22" r="14" fill="#ffffff" />
+          <text x="22" y="26" text-anchor="middle" font-size="14" font-weight="600" fill="${categoryColor}">${categoryIcon}</text>
         </svg>
       `;
 
@@ -249,8 +291,8 @@ const MapPage = () => {
         title: request.title,
         icon: {
           url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(requestPinSvg)}`,
-          scaledSize: new google.maps.Size(36, 36),
-          anchor: new google.maps.Point(18, 32)
+          scaledSize: new google.maps.Size(44, 60),
+          anchor: new google.maps.Point(22, 56)
         }
       });
 

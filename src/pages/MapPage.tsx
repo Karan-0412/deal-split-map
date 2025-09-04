@@ -142,8 +142,9 @@ const MapPage = () => {
       await loader.load();
       
       if (mapRef.current) {
-        mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-          center: { lat: 37.7749, lng: -122.4194 }, // Default to San Francisco
+        const initialCenter = { lat: 37.7749, lng: -122.4194 };
+        const map = new google.maps.Map(mapRef.current, {
+          center: initialCenter, // Default to San Francisco
           zoom: 12,
           styles: [
             {
@@ -154,7 +155,26 @@ const MapPage = () => {
           ]
         });
 
-        // Try to get user's location
+        mapInstanceRef.current = map;
+
+        // Helper to trigger resize and re-center (useful when navigating via client router)
+        const ensureRender = () => {
+          try {
+            google.maps.event.trigger(map, 'resize');
+            const c = map.getCenter();
+            if (c) map.setCenter(c);
+          } catch (e) {
+            // ignore
+          }
+        };
+
+        // Run once after a short delay in case container was hidden during navigation
+        setTimeout(ensureRender, 200);
+
+        // Also ensure after tiles load
+        map.addListener('idle', ensureRender);
+
+        // Try to get user's location and recenter
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -162,7 +182,8 @@ const MapPage = () => {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
               };
-              mapInstanceRef.current?.setCenter(pos);
+              map.setCenter(pos);
+              setTimeout(ensureRender, 150);
             }
           );
         }

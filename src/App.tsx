@@ -24,11 +24,21 @@ import Contact from "./pages/ContactPage";
 import NotFound from "./pages/NotFound";
 
 const ScrollToTop = () => {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   React.useEffect(() => {
-    // Smooth scroll to top on route change
-    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-  }, [pathname]);
+    if (hash) {
+      const id = hash.replace('#', '');
+      // Delay to ensure target element exists after route change
+      requestAnimationFrame(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    } else {
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    }
+  }, [pathname, hash]);
   return null;
 };
 

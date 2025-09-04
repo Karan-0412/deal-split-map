@@ -1,18 +1,6 @@
 import { Facebook, Twitter, Instagram, Mail } from "lucide-react";
-import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 const Footer = () => {
-  const location = useLocation();
-
-  const handleSecurityClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (location.pathname === "/") {
-      e.preventDefault();
-      const el = document.getElementById("security");
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }
-  };
   return (
     <footer className="bg-foreground text-background py-16">
       <div className="container mx-auto px-4">
@@ -53,13 +41,9 @@ const Footer = () => {
                 <p className="hover:text-background transition-colors">How it works</p></Link>
               </li>
               <li>
-                <a
-                  href="/#security"
-                  onClick={handleSecurityClick}
-                  className="hover:text-background transition-colors"
-                >
-                  Security
-                </a>
+                <Link to="/#security" className="hover:text-background transition-colors">
+                  <p>Security</p>
+                </Link>
               </li>
             </ul>
           </div>

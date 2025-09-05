@@ -70,7 +70,7 @@ const PostPage = () => {
     const loader = new Loader({
       apiKey: '', // Add your API key here - same as MapPage
       version: 'weekly',
-      libraries: ['maps', 'places'] // Added 'maps' library like in MapPage
+      libraries: ['maps', 'places'] as ("maps" | "places")[] // Fixed TypeScript issue
     });
 
     try {
@@ -105,7 +105,7 @@ const PostPage = () => {
         }
 
         // Add click listener to map
-        mapInstanceRef.current.addListener('click', (event: google.maps.MapMouseEvent) => {
+        mapInstanceRef.current.addListener('click', async (event: google.maps.MapMouseEvent) => {
           const clickedLocation = {
             lat: event.latLng!.lat(),
             lng: event.latLng!.lng()
@@ -113,16 +113,31 @@ const PostPage = () => {
           setSelectedLocation(clickedLocation);
           addMarker(clickedLocation);
 
-          // Reverse geocode to get address
-          const geocoder = new google.maps.Geocoder();
-          geocoder.geocode({ location: clickedLocation }, (results, status) => {
-            if (status === 'OK' && results && results[0]) {
+          // Reverse geocode to get address with better error handling
+          try {
+            const geocoder = new google.maps.Geocoder();
+            const response = await geocoder.geocode({ location: clickedLocation });
+            
+            if (response.results && response.results[0]) {
               setFormData(prev => ({
                 ...prev,
-                address: results[0].formatted_address
+                address: response.results[0].formatted_address
+              }));
+            } else {
+              // Fallback to coordinates if no address found
+              setFormData(prev => ({
+                ...prev,
+                address: `${clickedLocation.lat.toFixed(6)}, ${clickedLocation.lng.toFixed(6)}`
               }));
             }
-          });
+          } catch (error) {
+            console.error('Error reverse geocoding:', error);
+            // Set coordinates as fallback
+            setFormData(prev => ({
+              ...prev,
+              address: `${clickedLocation.lat.toFixed(6)}, ${clickedLocation.lng.toFixed(6)}`
+            }));
+          }
         });
       }
     } catch (error) {
@@ -143,17 +158,63 @@ const PostPage = () => {
     markerRef.current = new google.maps.Marker({
       position: location,
       map: mapInstanceRef.current,
-      title: 'Pickup Location',
+      title: 'Pickup Location - Click to select a different spot',
+      animation: google.maps.Animation.DROP,
       icon: {
         url: `data:image/svg+xml,${encodeURIComponent(`
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="white" stroke-width="2"/>
-            <circle cx="16" cy="16" r="4" fill="white"/>
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="16" fill="#ef4444" stroke="white" stroke-width="3"/>
+            <circle cx="20" cy="20" r="6" fill="white"/>
+            <text x="20" y="25" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="bold">📍</text>
           </svg>
         `)}`,
-        scaledSize: new google.maps.Size(32, 32)
+        scaledSize: new google.maps.Size(40, 40),
+        anchor: new google.maps.Point(20, 20)
       }
     });
+  };
+
+  // Geocode address and center map
+  const handleAddressSearch = async (address: string) => {
+    if (!mapInstanceRef.current || !address.trim()) return;
+
+    try {
+      const geocoder = new google.maps.Geocoder();
+      const response = await geocoder.geocode({ address });
+      
+      if (response.results[0]) {
+        const location = response.results[0].geometry.location;
+        const lat = location.lat();
+        const lng = location.lng();
+        
+        const newLocation = { lat, lng };
+        
+        mapInstanceRef.current.setCenter(newLocation);
+        mapInstanceRef.current.setZoom(15);
+        
+        setSelectedLocation(newLocation);
+        addMarker(newLocation);
+        
+        // Update the address field with the formatted address
+        setFormData(prev => ({
+          ...prev,
+          address: response.results[0].formatted_address
+        }));
+      } else {
+        toast({
+          title: "Address not found",
+          description: "Could not find the specified address. Please try a different search.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+      toast({
+        title: "Search Error",
+        description: "Unable to search for the address. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -386,15 +447,34 @@ const PostPage = () => {
 
                     <div>
                       <Label htmlFor="address">Pickup Address</Label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          id="address"
-                          placeholder="Click on the map to set location"
-                          className="pl-10"
-                          value={formData.address}
-                          onChange={(e) => handleInputChange('address', e.target.value)}
-                        />
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <Input
+                            id="address"
+                            placeholder="Enter address or click on map"
+                            className="pl-10"
+                            value={formData.address}
+                            onChange={(e) => handleInputChange('address', e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddressSearch(formData.address);
+                              }
+                            }}
+                          />
+                        </div>
+                        {formData.address && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddressSearch(formData.address)}
+                            className="w-full"
+                          >
+                            📍 Search this address on map
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -423,7 +503,7 @@ const PostPage = () => {
                     Pickup Location
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Click on the map to set where others can meet you to collect the item
+                    Click on the map to set location or enter an address above to search
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -433,10 +513,15 @@ const PostPage = () => {
                   />
                   {selectedLocation && (
                     <div className="mt-4 p-3 bg-primary/10 rounded-lg">
-                      <p className="text-sm font-medium text-foreground">Selected Location:</p>
+                      <p className="text-sm font-medium text-foreground">✅ Location Selected</p>
                       <p className="text-xs text-muted-foreground">
                         {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
                       </p>
+                      {formData.address && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          📍 {formData.address}
+                        </p>
+                      )}
                     </div>
                   )}
                 </CardContent>

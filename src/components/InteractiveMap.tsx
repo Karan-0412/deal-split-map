@@ -17,6 +17,8 @@ interface InteractiveMapProps {
   onMarkerClick?: (request: Request) => void;
   userProfile?: { display_name?: string; avatar_url?: string } | null;
   showLegend?: boolean;
+  onLocationSelect?: (location: { lat: number; lng: number; address: string }) => void;
+  searchQuery?: string;
 }
 
 const DEFAULT_PLACEHOLDER = '/placeholder.svg';
@@ -90,6 +92,8 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   onMarkerClick,
   userProfile,
   showLegend = true,
+  onLocationSelect,
+  searchQuery = '',
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -106,7 +110,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     const initMap = async () => {
       try {
         const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || '';
-        const libraries = ['maps', 'places'];
+        const libraries: ("maps" | "places")[] = ['maps', 'places'];
 
         // If Google Maps already loaded, don't call Loader again with different options
         if (!(window as any).google || !(window as any).google.maps) {
@@ -126,6 +130,32 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
           zoomControl: true,
           zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
         });
+
+        // Add click listener for reverse geocoding
+        if (onLocationSelect) {
+          map.addListener('click', async (event: google.maps.MapMouseEvent) => {
+            if (event.latLng) {
+              const lat = event.latLng.lat();
+              const lng = event.latLng.lng();
+              
+              try {
+                const geocoder = new google.maps.Geocoder();
+                const response = await geocoder.geocode({ location: { lat, lng } });
+                
+                if (response.results[0]) {
+                  onLocationSelect({
+                    lat,
+                    lng,
+                    address: response.results[0].formatted_address
+                  });
+                }
+              } catch (error) {
+                console.error('Error reverse geocoding:', error);
+                onLocationSelect({ lat, lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` });
+              }
+            }
+          });
+        }
 
         mapInstanceRef.current = map;
         setIsLoaded(true);
@@ -147,7 +177,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     // Add user marker
     if (userLocation) {
       const userImg = userProfile?.avatar_url || DEFAULT_PLACEHOLDER;
-      const userPinEl = createPhotoPinElement({ color: '#8b5cf6', photoUrl: userImg, size: 44, smallCircleSize: 18 });
+      const userPinEl = createPhotoPinElement({ color: '#8b5cf6', photoUrl: userImg, size: 44 });
       const userSvg = userPinEl.innerHTML;
       const userMarker = new google.maps.Marker({
         map: mapInstanceRef.current!,
@@ -180,8 +210,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       markersRef.current.push(userMarker);
     }
 
+    // Filter requests based on search query
+    const filteredRequests = searchQuery
+      ? requests.filter(request => 
+          request.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          request.categories?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : requests;
+
     // Add request markers
-    requests.forEach((request) => {
+    filteredRequests.forEach((request) => {
       const lat = Number(request.location_lat);
       const lng = Number(request.location_lng);
       if (!lat || !lng) return;
@@ -189,7 +227,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       const categoryColor = getCategoryColor(request.categories?.name, request.categories?.color || undefined);
       const photoUrl = (request as any).product_image_url || DEFAULT_PLACEHOLDER;
 
-      const pinEl = createPhotoPinElement({ color: categoryColor, photoUrl, size: 40, smallCircleSize: 18 });
+      const pinEl = createPhotoPinElement({ color: categoryColor, photoUrl, size: 40 });
       const svg = pinEl.innerHTML;
       const marker = new google.maps.Marker({
         map: mapInstanceRef.current!,
@@ -245,7 +283,56 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       markersRef.current.push(marker);
     });
-  }, [isLoaded, userLocation, requests, onMarkerClick]);
+  }, [isLoaded, userLocation, requests, onMarkerClick, searchQuery]);
+
+  // Geocode address and move map
+  const geocodeAddress = async (address: string) => {
+    if (!mapInstanceRef.current || !address.trim()) return;
+
+    try {
+      const geocoder = new google.maps.Geocoder();
+      const response = await geocoder.geocode({ address });
+      
+      if (response.results[0]) {
+        const location = response.results[0].geometry.location;
+        const lat = location.lat();
+        const lng = location.lng();
+        
+        mapInstanceRef.current.setCenter({ lat, lng });
+        mapInstanceRef.current.setZoom(15);
+        
+        // Add a temporary marker for the searched location
+        const marker = new google.maps.Marker({
+          map: mapInstanceRef.current,
+          position: { lat, lng },
+          title: 'Searched Location',
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="#ffffff" stroke-width="3"/>
+                <circle cx="16" cy="16" r="6" fill="#ffffff"/>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(32, 32),
+            anchor: new google.maps.Point(16, 16),
+          },
+        });
+        
+        // Remove marker after 3 seconds
+        setTimeout(() => marker.setMap(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+    }
+  };
+
+  // Expose geocoding function through useEffect for external access
+  React.useEffect(() => {
+    (window as any).geocodeAddress = geocodeAddress;
+    return () => {
+      delete (window as any).geocodeAddress;
+    };
+  }, []);
 
   const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
     const R = 3959; // miles

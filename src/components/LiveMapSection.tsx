@@ -21,6 +21,7 @@ const LiveMapSection = () => {
   const [radius, setRadius] = useState<number>(2);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<string>('');
 
   useEffect(() => {
     fetchCategories();
@@ -65,6 +66,11 @@ const LiveMapSection = () => {
   const fetchCategories = async () => {
     const { data, error } = await supabase.from("categories").select("*").order("name");
     if (!error && data) setCategories(data);
+  };
+
+  const handleLocationSelect = (location: { lat: number; lng: number; address: string }) => {
+    setUserLocation({ lat: location.lat, lng: location.lng });
+    setSelectedAddress(location.address);
   };
 
   const fetchAllDeals = async () => {
@@ -163,6 +169,7 @@ const LiveMapSection = () => {
                     userLocation={userLocation}
                     requests={filteredDeals}
                     onMarkerClick={(request) => console.log('Marker clicked:', request)}
+                    onLocationSelect={handleLocationSelect}
                     showLegend={true}
                   />
                 )}

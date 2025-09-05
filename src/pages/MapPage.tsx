@@ -56,6 +56,8 @@ const MapPage = () => {
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [addressSearch, setAddressSearch] = useState('');
   const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 10000]);
   const [locationFilter, setLocationFilter] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -75,7 +77,48 @@ const MapPage = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [requests, selectedCategory, searchQuery, budgetRange, locationFilter, sortBy]);
+  }, [requests, selectedCategory, searchQuery, productSearch, budgetRange, locationFilter, sortBy]);
+
+  // Geocode address and center map
+  const handleAddressSearch = async (address: string) => {
+    if (!mapInstanceRef.current || !address.trim()) return;
+
+    try {
+      const geocoder = new google.maps.Geocoder();
+      const response = await geocoder.geocode({ address });
+      
+      if (response.results[0]) {
+        const location = response.results[0].geometry.location;
+        const lat = location.lat();
+        const lng = location.lng();
+        
+        mapInstanceRef.current.setCenter({ lat, lng });
+        mapInstanceRef.current.setZoom(15);
+        
+        // Add a temporary search marker
+        const marker = new google.maps.Marker({
+          map: mapInstanceRef.current,
+          position: { lat, lng },
+          title: 'Searched Location',
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="16" cy="16" r="12" fill="#ef4444" stroke="#ffffff" stroke-width="3"/>
+                <circle cx="16" cy="16" r="6" fill="#ffffff"/>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(32, 32),
+            anchor: new google.maps.Point(16, 16),
+          },
+        });
+        
+        // Remove marker after 3 seconds
+        setTimeout(() => marker.setMap(null), 3000);
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+    }
+  };
 
   const applyFilters = () => {
     let filtered = [...requests];
@@ -91,6 +134,13 @@ const MapPage = () => {
         req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         req.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         req.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Product name filter
+    if (productSearch) {
+      filtered = filtered.filter(req => 
+        req.title.toLowerCase().includes(productSearch.toLowerCase())
       );
     }
 
@@ -126,6 +176,8 @@ const MapPage = () => {
   const clearFilters = () => {
     setSelectedCategory(null);
     setSearchQuery('');
+    setProductSearch('');
+    setAddressSearch('');
     setBudgetRange([0, 10000]);
     setLocationFilter('');
     setSortBy('recent');
@@ -133,7 +185,7 @@ const MapPage = () => {
 
   const initializeMap = async () => {
     const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc';
-    const libraries = ['maps', 'places'];
+    const libraries: ("maps" | "places")[] = ['maps', 'places'];
 
     try {
       // Only load the script if google maps isn't already present
@@ -338,15 +390,36 @@ const MapPage = () => {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search requests by title, description, or location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-3"
-            />
+          {/* Search Bars */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search by product name..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search by address (e.g., New York, NY)..."
+                value={addressSearch}
+                onChange={(e) => setAddressSearch(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddressSearch(addressSearch)}
+                className="pl-10"
+              />
+            </div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="General search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
           </div>
 
           {/* Enhanced Filters Panel */}
@@ -469,6 +542,17 @@ const MapPage = () => {
           <div className="lg:col-span-2">
             <Card className="overflow-hidden p-4">
               <div ref={mapRef} className="w-full h-[600px] bg-muted rounded-xl" />
+              {filteredRequests.length === 0 && (productSearch || searchQuery) && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-xl">
+                  <div className="text-center">
+                    <Search className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No results found</h3>
+                    <p className="text-muted-foreground">
+                      Try adjusting your search criteria or clear filters to see more results.
+                    </p>
+                  </div>
+                </div>
+              )}
             </Card>
           </div>
 

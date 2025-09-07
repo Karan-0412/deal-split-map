@@ -67,8 +67,10 @@ const PostPage = () => {
   };
 
   const initializeMap = async () => {
+    const apiKey = (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyA27ZFwShXNiCI3Hso1tFvGI6Hp3dLsMAc';
+    
     const loader = new Loader({
-      apiKey: process.env.VITE_GOOGLE_MAPS_API_KEY || '', 
+      apiKey, 
       version: 'weekly',
       libraries: ['maps', 'places'] as ("maps" | "places")[]
     });
@@ -174,73 +176,100 @@ const PostPage = () => {
     });
   };
 
-  // Geocode address and center map
+  // Enhanced geocoding with place search capabilities
   const handleAddressSearch = async (address: string) => {
     if (!mapInstanceRef.current || !address.trim()) {
       toast({
-        title: "Invalid Address",
-        description: "Please enter a valid address to search.",
+        title: "Invalid Search",
+        description: "Please enter a place name or address to search.",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      // Check if Google Maps API is available and properly configured
+      // Check if Google Maps API is available
       if (!window.google || !window.google.maps) {
         throw new Error('Google Maps API not loaded');
       }
 
-      const geocoder = new google.maps.Geocoder();
-      const response = await geocoder.geocode({ address });
+      // Try Places API first for better place name recognition
+      const service = new google.maps.places.PlacesService(mapInstanceRef.current);
       
-      if (response.results && response.results[0]) {
-        const location = response.results[0].geometry.location;
-        const lat = location.lat();
-        const lng = location.lng();
-        
-        const newLocation = { lat, lng };
-        
-        mapInstanceRef.current.setCenter(newLocation);
-        mapInstanceRef.current.setZoom(15);
-        
-        setSelectedLocation(newLocation);
-        addMarker(newLocation);
-        
-        // Update the address field with the formatted address
-        setFormData(prev => ({
-          ...prev,
-          address: response.results[0].formatted_address
-        }));
+      const placesRequest = {
+        query: address,
+        fields: ['place_id', 'geometry', 'name', 'formatted_address', 'types']
+      };
 
-        toast({
-          title: "Location Found",
-          description: "Successfully located the address on the map.",
+      service.textSearch(placesRequest, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results && results[0]) {
+          const place = results[0];
+          const location = place.geometry?.location;
+          
+          if (location) {
+            const lat = location.lat();
+            const lng = location.lng();
+            const newLocation = { lat, lng };
+            
+            mapInstanceRef.current?.setCenter(newLocation);
+            mapInstanceRef.current?.setZoom(15);
+            
+            setSelectedLocation(newLocation);
+            addMarker(newLocation);
+            
+            setFormData(prev => ({
+              ...prev,
+              address: place.formatted_address || place.name || address
+            }));
+
+            toast({
+              title: "Location Found",
+              description: `Successfully found ${place.name || 'the location'} on the map.`,
+            });
+            return;
+          }
+        }
+        
+        // Fallback to Geocoding API
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address }, (results, status) => {
+          if (status === 'OK' && results && results[0]) {
+            const location = results[0].geometry.location;
+            const lat = location.lat();
+            const lng = location.lng();
+            const newLocation = { lat, lng };
+            
+            mapInstanceRef.current?.setCenter(newLocation);
+            mapInstanceRef.current?.setZoom(15);
+            
+            setSelectedLocation(newLocation);
+            addMarker(newLocation);
+            
+            setFormData(prev => ({
+              ...prev,
+              address: results[0].formatted_address
+            }));
+
+            toast({
+              title: "Location Found",
+              description: "Successfully located the address on the map.",
+            });
+          } else {
+            toast({
+              title: "Location not found",
+              description: "Could not find the specified place or address. Please try a different search or click on the map.",
+              variant: "destructive"
+            });
+          }
         });
-      } else {
-        toast({
-          title: "Address not found",
-          description: "Could not find the specified address. Please try a different search or click on the map to select a location.",
-          variant: "destructive"
-        });
-      }
+      });
+      
     } catch (error: any) {
-      console.error('Error geocoding address:', error);
-      
-      // Provide more specific error messages
-      let errorMessage = "Unable to search for the address. ";
-      
-      if (error.message?.includes('REQUEST_DENIED') || error.code === 'REQUEST_DENIED') {
-        errorMessage += "Please check your API key configuration or click directly on the map to select a location.";
-      } else if (error.message?.includes('ZERO_RESULTS')) {
-        errorMessage += "No results found for this address. Please try a different search.";
-      } else {
-        errorMessage += "Please try again or click directly on the map.";
-      }
+      console.error('Error searching for location:', error);
       
       toast({
         title: "Search Error",
-        description: errorMessage,
+        description: "Unable to search for the location. Please try again or click directly on the map.",
         variant: "destructive"
       });
     }

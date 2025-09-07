@@ -109,6 +109,46 @@ export default function HeroSection() {
 
   return (
     <section className="relative w-full h-screen overflow-hidden bg-black text-white">
+      {/* ==== Company Name Text Box ==== */}
+      <div className="absolute left-8 top-1/2 -translate-y-1/2 z-20 max-w-sm">
+        <motion.div
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 1, delay: 0.5 }}
+          className="bg-gradient-to-r from-black/60 via-purple-900/40 to-black/60 backdrop-blur-lg border border-white/20 rounded-2xl p-8 shadow-2xl"
+        >
+          <motion.h1 
+            className="text-6xl font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-rose-400 bg-clip-text text-transparent mb-2"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+            animate={{ 
+              backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+            }}
+            transition={{ 
+              duration: 4, 
+              repeat: Infinity, 
+              ease: "easeInOut" 
+            }}
+          >
+            CoOrder
+          </motion.h1>
+          <motion.p 
+            className="text-white/80 text-lg italic"
+            style={{ fontFamily: "'Playfair Display', serif" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1 }}
+          >
+            Split. Share. Save.
+          </motion.p>
+          <motion.div 
+            className="w-full h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent mt-4"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 1.2, duration: 0.8 }}
+          />
+        </motion.div>
+      </div>
+
       {/* ==== FULLSCREEN SPLINE BACKGROUND ==== */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <Spline

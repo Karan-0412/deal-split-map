@@ -97,7 +97,8 @@ export default {
 			},
 			fontFamily: {
 				'inter': ['Inter', 'system-ui', 'sans-serif'],
-				'poppins': ['Poppins', 'system-ui', 'sans-serif']
+				'poppins': ['Poppins', 'system-ui', 'sans-serif'],
+				'playfair': ['Playfair Display', 'serif']
 			},
 			boxShadow: {
 				'soft': 'var(--shadow-soft)',

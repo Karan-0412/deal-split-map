@@ -68,9 +68,9 @@ const PostPage = () => {
 
   const initializeMap = async () => {
     const loader = new Loader({
-      apiKey: '', // Add your API key here - same as MapPage
+      apiKey: process.env.VITE_GOOGLE_MAPS_API_KEY || '', 
       version: 'weekly',
-      libraries: ['maps', 'places'] as ("maps" | "places")[] // Fixed TypeScript issue
+      libraries: ['maps', 'places'] as ("maps" | "places")[]
     });
 
     try {
@@ -176,13 +176,25 @@ const PostPage = () => {
 
   // Geocode address and center map
   const handleAddressSearch = async (address: string) => {
-    if (!mapInstanceRef.current || !address.trim()) return;
+    if (!mapInstanceRef.current || !address.trim()) {
+      toast({
+        title: "Invalid Address",
+        description: "Please enter a valid address to search.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     try {
+      // Check if Google Maps API is available and properly configured
+      if (!window.google || !window.google.maps) {
+        throw new Error('Google Maps API not loaded');
+      }
+
       const geocoder = new google.maps.Geocoder();
       const response = await geocoder.geocode({ address });
       
-      if (response.results[0]) {
+      if (response.results && response.results[0]) {
         const location = response.results[0].geometry.location;
         const lat = location.lat();
         const lng = location.lng();
@@ -200,18 +212,35 @@ const PostPage = () => {
           ...prev,
           address: response.results[0].formatted_address
         }));
+
+        toast({
+          title: "Location Found",
+          description: "Successfully located the address on the map.",
+        });
       } else {
         toast({
           title: "Address not found",
-          description: "Could not find the specified address. Please try a different search.",
+          description: "Could not find the specified address. Please try a different search or click on the map to select a location.",
           variant: "destructive"
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error geocoding address:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = "Unable to search for the address. ";
+      
+      if (error.message?.includes('REQUEST_DENIED') || error.code === 'REQUEST_DENIED') {
+        errorMessage += "Please check your API key configuration or click directly on the map to select a location.";
+      } else if (error.message?.includes('ZERO_RESULTS')) {
+        errorMessage += "No results found for this address. Please try a different search.";
+      } else {
+        errorMessage += "Please try again or click directly on the map.";
+      }
+      
       toast({
         title: "Search Error",
-        description: "Unable to search for the address. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       });
     }

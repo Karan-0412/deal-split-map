@@ -431,3 +431,15 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   border: 2px solid white;
 }
+
+/* Custom animations for enhanced text box */
+@keyframes gradient-shift {
+  0%, 100% { 
+    background-position: 0% 50%; 
+    opacity: 0.3;
+  }
+  50% { 
+    background-position: 100% 50%; 
+    opacity: 0.6;
+  }
+}

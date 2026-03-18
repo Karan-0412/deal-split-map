@@ -25,8 +25,8 @@ declare global {
 interface Category {
   id: string;
   name: string;
-  icon: string;
-  color: string;
+  icon: string | null;
+  color: string | null;
 }
 
 interface Request {
@@ -51,14 +51,13 @@ const MapPage = () => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const navigate = useNavigate();
-  const { joinRequest, getRequestParticipants } = useGroupChat();
+  const { joinRequest } = useGroupChat();
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<Request[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-  const [loading, setLoading] = useState(true);
   const [joiningRequest, setJoiningRequest] = useState<string | null>(null);
   
   // Filter states
@@ -243,7 +242,7 @@ const MapPage = () => {
   };
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('categories')
       .select('*')
       .order('name');
@@ -254,7 +253,7 @@ const MapPage = () => {
   };
 
   const fetchRequests = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('requests')
       .select(`
         *,
@@ -281,7 +280,6 @@ const MapPage = () => {
 
       setRequests(requestsWithProfiles as Request[]);
     }
-    setLoading(false);
   };
 
   const addMarkersToMap = () => {

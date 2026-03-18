@@ -114,14 +114,6 @@ export default function HeroSection() {
     setThought(null);
   };
 
-  const handleLogoMouseEnter = () => {
-    setThought("Its tickling don't do that...😂");
-  };
-
-  const handleLogoMouseLeave = () => {
-    setThought(null);
-  };
-
   return (
     <section className="relative w-full h-screen overflow-hidden bg-black text-white">
       {/* ==== FULLSCREEN SPLINE BACKGROUND ==== */}

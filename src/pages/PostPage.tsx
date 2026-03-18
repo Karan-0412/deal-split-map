@@ -226,7 +226,7 @@ const PostPage = () => {
       };
 
 
-      const { data } = await supabase
+      const { error } = await supabase
         .from("requests")
         .insert(requestData)
         .select();

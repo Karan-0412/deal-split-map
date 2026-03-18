@@ -76,24 +76,6 @@ const ChatPage = () => {
   const memoizedChatRooms = useMemo(() => chatRooms, [chatRooms]);
   const memoizedMessages = useMemo(() => messages, [messages]);
   
-  // OPTIMIZATION: Memoize selected room info
-  const selectedRoomInfo = useMemo(() => {
-    return chatRooms.find(room => room.id === selectedRoom);
-  }, [chatRooms, selectedRoom]);
-  
-  // OPTIMIZATION: Memoize other user info
-  const _otherUser = useMemo(() => {
-    if (!selectedRoomInfo || !user) return null;
-    
-    if (selectedRoomInfo.room_type === 'group') {
-      return {
-        display_name: selectedRoomInfo.room_name || selectedRoomInfo.requests?.title || 'Group Chat',
-        avatar_url: ''
-      };
-    }
-    
-    return user.id === selectedRoomInfo.buyer_id ? selectedRoomInfo.seller_profile : selectedRoomInfo.buyer_profile;
-  }, [selectedRoomInfo, user]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -265,11 +247,6 @@ const ChatPage = () => {
   // ===== HELPER FUNCTIONS =====
   
   // Removed getOtherUser - now using memoized otherUser
-
-  const _getMyLastReadAt = useCallback((room: ChatRoom) => {
-    if (!user) return undefined;
-    return user.id === room.buyer_id ? room.buyer_last_read_at : room.seller_last_read_at;
-  }, [user]);
 
   const markRoomAsRead = useCallback(async (roomId: string) => {
     if (!user) return;

@@ -1,0 +1,1174 @@
+
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { MessageCircle, Send, Smile, Paperclip, X, File, Image, FileText, Video, Music } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import Navigation from '@/components/Navigation';
+import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+interface ChatRoom {
+  id: string;
+  request_id: string;
+  buyer_id: string;
+  seller_id: string;
+  created_at: string;
+  room_type?: string;
+  room_name?: string;
+  created_by?: string;
+  buyer_last_read_at?: string;
+  seller_last_read_at?: string;
+  requests: {
+    title: string;
+  };
+  buyer_profile: {
+    display_name: string;
+    avatar_url: string;
+  };
+  seller_profile: {
+    display_name: string;
+    avatar_url: string;
+  };
+  participants?: Array<{
+    user_id: string;
+    profiles: {
+      display_name: string;
+      avatar_url: string;
+    };
+  }>;
+}
+
+interface Message {
+  id: string;
+  chat_room_id: string;
+  sender_id: string;
+  message: string;
+  created_at: string;
+  attachment_url?: string;
+  attachment_type?: string;
+  attachment_name?: string;
+  profiles: {
+    display_name: string;
+    avatar_url: string;
+  };
+}
+
+interface FileAttachment {
+  file: File;
+  type: 'image' | 'document' | 'video' | 'audio' | 'other';
+  preview?: string;
+}
+
+const ChatPage = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const location = useLocation();
+  const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // OPTIMIZATION: Memoize expensive calculations
+  const memoizedChatRooms = useMemo(() => chatRooms, [chatRooms]);
+  const memoizedMessages = useMemo(() => messages, [messages]);
+  
+  // OPTIMIZATION: Memoize selected room info
+  const selectedRoomInfo = useMemo(() => {
+    return chatRooms.find(room => room.id === selectedRoom);
+  }, [chatRooms, selectedRoom]);
+  
+  // OPTIMIZATION: Memoize other user info
+  const _otherUser = useMemo(() => {
+    if (!selectedRoomInfo || !user) return null;
+    
+    if (selectedRoomInfo.room_type === 'group') {
+      return {
+        display_name: selectedRoomInfo.room_name || selectedRoomInfo.requests?.title || 'Group Chat',
+        avatar_url: ''
+      };
+    }
+    
+    return user.id === selectedRoomInfo.buyer_id ? selectedRoomInfo.seller_profile : selectedRoomInfo.buyer_profile;
+  }, [selectedRoomInfo, user]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<FileAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [, setLatestByRoom] = useState<Record<string, string>>({});
+  const [latestPreviewByRoom, setLatestPreviewByRoom] = useState<Record<string, { text: string; created_at: string; sender_id: string }>>({});
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  // ===== EMOJI PICKER =====
+  const emojis = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
+    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
+    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
+    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
+    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
+    '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗',
+    '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😯', '😦', '😧',
+    '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢',
+    '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '💩', '🤡', '👹',
+    '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼'
+  ];
+
+  const addEmoji = (emoji: string) => {
+    setNewMessage(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // ===== FILE HANDLING =====
+  const getFileType = (file: File): 'image' | 'document' | 'video' | 'audio' | 'other' => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    if (file.type.startsWith('audio/')) return 'audio';
+    if (file.type.includes('pdf') || file.type.includes('document') || file.type.includes('text')) return 'document';
+    return 'other';
+  };
+
+  const getFileIcon = (type: string) => {
+    switch (type) {
+      case 'image': return <Image className="w-4 h-4" />;
+      case 'document': return <FileText className="w-4 h-4" />;
+      case 'video': return <Video className="w-4 h-4" />;
+      case 'audio': return <Music className="w-4 h-4" />;
+      default: return <File className="w-4 h-4" />;
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    
+    // Validate files
+    const validFiles = files.filter(file => {
+      // Check file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: `${file.name} is larger than 50MB`,
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      // Check file type
+      const allowedTypes = [
+        'image/', 'video/', 'audio/', 
+        'application/pdf', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain', 'application/zip', 'application/x-rar-compressed'
+      ];
+      
+      const isAllowed = allowedTypes.some(type => file.type.startsWith(type));
+      if (!isAllowed) {
+        toast({
+          title: "File type not supported",
+          description: `${file.name} is not a supported file type`,
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length === 0) return;
+
+    const newAttachments: FileAttachment[] = validFiles.map(file => ({
+      file,
+      type: getFileType(file),
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
+    }));
+    
+    setSelectedFiles(prev => [...prev, ...newAttachments]);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => {
+      const newFiles = [...prev];
+      const removedFile = newFiles[index];
+      if (removedFile.preview) {
+        URL.revokeObjectURL(removedFile.preview);
+      }
+      newFiles.splice(index, 1);
+      return newFiles;
+    });
+  };
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    try {
+      if (!selectedRoom) {
+        console.error('No room selected for file upload');
+        return null;
+      }
+
+      // Check file size (50MB limit)
+      if (file.size > 50 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "File size must be less than 50MB",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `chat-attachments/${selectedRoom}/${fileName}`;
+
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-files')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast({
+          title: "Upload failed",
+          description: uploadError.message || "Failed to upload file",
+          variant: "destructive"
+        });
+        return null;
+      }
+
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-files')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast({
+        title: "Upload error",
+        description: "An unexpected error occurred during upload",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
+  // ===== HELPER FUNCTIONS =====
+  
+  // Removed getOtherUser - now using memoized otherUser
+
+  const _getMyLastReadAt = useCallback((room: ChatRoom) => {
+    if (!user) return undefined;
+    return user.id === room.buyer_id ? room.buyer_last_read_at : room.seller_last_read_at;
+  }, [user]);
+
+  const markRoomAsRead = useCallback(async (roomId: string) => {
+    if (!user) return;
+    const room = chatRooms.find(r => r.id === roomId);
+    if (!room) return;
+    const now = new Date().toISOString();
+    if (user.id === room.buyer_id) {
+      await supabase.from('chat_rooms').update({ buyer_last_read_at: now } as any).eq('id', roomId);
+    } else {
+      await supabase.from('chat_rooms').update({ seller_last_read_at: now } as any).eq('id', roomId);
+    }
+    setChatRooms(prev => prev.map(r => r.id === roomId ? {
+      ...r,
+      buyer_last_read_at: user.id === r.buyer_id ? now : r.buyer_last_read_at,
+      seller_last_read_at: user.id === r.seller_id ? now : r.seller_last_read_at
+    } : r));
+    setUnreadCounts(prev => ({ ...prev, [roomId]: 0 }));
+  }, [user, chatRooms]);
+
+  const fetchChatRooms = useCallback(async () => {
+    if (!user) {
+      setChatRooms([]);
+      setLoading(false);
+      return;
+    }
+
+
+    try {
+      // Fetch all chats where user is a participant (both direct and group)
+      const { data: allRooms, error: roomsError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          *,
+          requests (title)
+        `)
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`);
+
+      if (roomsError) {
+        console.error('Error fetching chat rooms:', roomsError);
+        setChatRooms([]);
+        setLoading(false);
+        return;
+      }
+
+
+      if (allRooms.length === 0) {
+        setChatRooms([]);
+        setLoading(false);
+        return;
+      }
+
+      // OPTIMIZATION: Collect all unique user IDs first
+      const allUserIds = new Set<string>();
+      
+      // Add buyer/seller IDs from all rooms
+      allRooms?.forEach(room => {
+        allUserIds.add(room.buyer_id);
+        allUserIds.add(room.seller_id);
+      });
+
+      // OPTIMIZATION: Fetch all profiles in one query
+      const { data: allProfiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', Array.from(allUserIds));
+
+      const profileMap = new Map();
+      allProfiles?.forEach(profile => {
+        profileMap.set(profile.user_id, profile);
+      });
+
+      // OPTIMIZATION: Fetch all latest messages in one query
+      const { data: latestMessages } = await supabase
+        .from('messages')
+        .select('chat_room_id, content, created_at, sender_id')
+        .in('chat_room_id', allRooms.map(r => r.id))
+        .order('created_at', { ascending: false });
+
+      // Group latest messages by room
+      const latestByRoom = new Map();
+      latestMessages?.forEach(msg => {
+        if (!latestByRoom.has(msg.chat_room_id)) {
+          latestByRoom.set(msg.chat_room_id, msg);
+        }
+      });
+
+      // OPTIMIZATION: Process rooms with batched data
+      const roomsWithProfiles = allRooms.map((room) => {
+        if (room.room_type === 'group') {
+          // For group chats, use room_name as display name
+          return {
+            ...room,
+            buyer_profile: { display_name: room.room_name || room.requests?.title || 'Group Chat', avatar_url: '' },
+            seller_profile: { display_name: '', avatar_url: '' }
+          };
+        } else {
+          // For direct chats, use batched profile data
+          return {
+            ...room,
+            buyer_profile: profileMap.get(room.buyer_id) || { display_name: '', avatar_url: '' },
+            seller_profile: profileMap.get(room.seller_id) || { display_name: '', avatar_url: '' }
+          };
+        }
+      });
+
+      setChatRooms(roomsWithProfiles as ChatRoom[]);
+
+      // Set latest messages and previews
+      const nextPreview: Record<string, { text: string; created_at: string; sender_id: string }> = {};
+      const nextLatest: Record<string, string> = {};
+      
+      roomsWithProfiles.forEach(room => {
+        const latestMsg = latestByRoom.get(room.id);
+        if (latestMsg) {
+          nextPreview[room.id] = { 
+            text: latestMsg.content || '', 
+            created_at: latestMsg.created_at, 
+            sender_id: latestMsg.sender_id 
+          };
+          nextLatest[room.id] = latestMsg.created_at;
+        }
+      });
+
+      setLatestPreviewByRoom(nextPreview);
+      setLatestByRoom(prev => ({ ...nextLatest, ...prev }));
+      
+      // Set unread counts to 0 initially (will be updated by real-time subscriptions)
+      const nextUnreadCounts: Record<string, number> = {};
+      roomsWithProfiles.forEach(room => {
+        nextUnreadCounts[room.id] = 0;
+      });
+      setUnreadCounts(nextUnreadCounts);
+
+    } catch (error) {
+      setChatRooms([]);
+    }
+    
+    setLoading(false);
+  }, [user]);
+
+  const fetchMessages = useCallback(async () => {
+    if (!selectedRoom) return;
+    if (!user) {
+      return;
+    }
+
+
+    // First, verify user has access to this room
+    const { data: roomAccess, error: accessError } = await supabase
+      .from('chat_rooms')
+      .select('id, room_type, buyer_id, seller_id')
+      .eq('id', selectedRoom)
+      .single();
+
+    if (accessError) {
+      return;
+    }
+
+    if (!roomAccess) {
+      return;
+    }
+
+
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('chat_room_id', selectedRoom)
+      .order('created_at', { ascending: true });
+
+    if (data && data.length > 0) {
+
+      // Get all unique sender IDs
+      const senderIds = [...new Set(data.map(msg => msg.sender_id))];
+
+      // Fetch all profiles in one query
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', senderIds);
+
+
+      // Create a map for quick profile lookup
+      const profileMap = new Map();
+      profiles?.forEach(profile => {
+        profileMap.set(profile.user_id, profile);
+      });
+
+      // Combine messages with profiles
+      const messagesWithProfiles = data.map(message => ({
+        ...message,
+        message: (message as any).content ?? (message as any).message ?? '',
+        profiles: profileMap.get(message.sender_id) || { display_name: 'Unknown User', avatar_url: '' }
+      }));
+
+      setMessages(messagesWithProfiles as Message[]);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedRoom, user]);
+
+  const subscribeToMessages = useCallback(() => {
+    if (!selectedRoom) return;
+
+
+    const subscription = supabase
+      .channel(`room-${selectedRoom}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_room_id=eq.${selectedRoom}`
+        },
+        async (payload) => {
+          
+          // Get the message data first
+          const { data: message, error: messageError } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('id', payload.new.id)
+            .single();
+
+          if (messageError) {
+            return;
+          }
+
+          if (message) {
+            
+            // Get the profile separately
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('display_name, avatar_url')
+              .eq('user_id', message.sender_id)
+              .single();
+
+            if (profileError) {
+            }
+
+            const messageWithProfile = {
+              ...message,
+              message: (message as any).content ?? (message as any).message ?? '',
+              profiles: profile || { display_name: 'Unknown User', avatar_url: '' }
+            };
+
+            
+            setMessages(prev => {
+              const withoutPending = prev.filter(m => !(
+                (m as any).id?.toString().startsWith('pending-') &&
+                m.sender_id === messageWithProfile.sender_id &&
+                m.message === messageWithProfile.message
+              ));
+              const newMessages = [...withoutPending, messageWithProfile as Message];
+              return newMessages;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    
+    // Add a test to verify subscription is working
+    setTimeout(() => {
+    }, 1000);
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [selectedRoom]);
+
+  const sendMessage = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if ((!newMessage.trim() && selectedFiles.length === 0) || !selectedRoom || !user) {
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to send messages in group chats.",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+
+
+    setIsUploading(true);
+
+    try {
+      // Upload files first if any
+      const uploadedFiles: { url: string; type: string; name: string }[] = [];
+      
+      if (selectedFiles.length > 0) {
+        toast({
+          title: "Uploading files...",
+          description: `Uploading ${selectedFiles.length} file(s)...`,
+        });
+
+        for (const attachment of selectedFiles) {
+          const url = await uploadFile(attachment.file);
+          if (url) {
+            uploadedFiles.push({
+              url,
+              type: attachment.type,
+              name: attachment.file.name
+            });
+          } else {
+            // If any file fails to upload, stop and show error
+            toast({
+              title: "Upload failed",
+              description: `Failed to upload ${attachment.file.name}`,
+              variant: "destructive"
+            });
+            setIsUploading(false);
+            return;
+          }
+        }
+      }
+
+      // Create optimistic message
+      const optimistic: Message = {
+        id: `pending-${Date.now()}`,
+        chat_room_id: selectedRoom,
+        sender_id: user.id,
+        message: newMessage.trim(),
+        created_at: new Date().toISOString(),
+        attachment_url: uploadedFiles.length > 0 ? uploadedFiles[0].url : undefined,
+        attachment_type: uploadedFiles.length > 0 ? uploadedFiles[0].type : undefined,
+        attachment_name: uploadedFiles.length > 0 ? uploadedFiles[0].name : undefined,
+        profiles: {
+          display_name: '',
+          avatar_url: ''
+        }
+      };
+
+      setMessages(prev => [...prev, optimistic]);
+      const messageToSend = newMessage.trim();
+      setNewMessage('');
+      setSelectedFiles([]);
+
+      setTimeout(() => scrollToBottom('smooth'), 50);
+
+      // Send message to database
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          chat_room_id: selectedRoom,
+          sender_id: user.id,
+          content: messageToSend,
+          attachment_url: uploadedFiles.length > 0 ? uploadedFiles[0].url : null,
+          attachment_type: uploadedFiles.length > 0 ? uploadedFiles[0].type : null,
+          attachment_name: uploadedFiles.length > 0 ? uploadedFiles[0].name : null
+        });
+
+      if (error) {
+        console.error('Database error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save message to database",
+          variant: "destructive"
+        });
+        setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+      } else {
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  }, [newMessage, selectedFiles, selectedRoom, user, toast]);
+
+  // ===== SCROLL FUNCTIONS =====
+  
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    }
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (messagesContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100;
+      setShowScrollToBottom(!isNearBottom);
+    }
+  }, []);
+
+  // ===== USE EFFECT HOOKS =====
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom('auto');
+    }
+  }, [messages, selectedRoom, scrollToBottom]);
+
+  useEffect(() => {
+    if (selectedRoom && messagesContainerRef.current) {
+      const timer = setTimeout(() => {
+        scrollToBottom('auto');
+        setShowScrollToBottom(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedRoom, scrollToBottom]);
+
+  useEffect(() => {
+    if (user) {
+      fetchChatRooms();
+    }
+  }, [user, fetchChatRooms]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const roomId = params.get('roomId');
+    const hasRequestId = params.has('requestId');
+    
+    // OPTIMIZATION: If roomId is provided, select immediately without waiting for chatRooms
+    if (roomId && selectedRoom !== roomId) {
+      setSelectedRoom(roomId);
+      return;
+    }
+    
+    // If no specific room requested and no room selected, select first room
+    if (!selectedRoom && chatRooms.length > 0 && !hasRequestId) {
+      setSelectedRoom(chatRooms[0].id);
+    }
+  }, [chatRooms, selectedRoom, location.search]);
+
+  useEffect(() => {
+  if (!user) return;
+
+  const params = new URLSearchParams(location.search);
+  const requestId = params.get("requestId");
+  if (!requestId) return;
+
+  const ensureRoom = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to start chats.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // OPTIMIZATION: Single query to get request
+    const { data: req, error: reqError } = await supabase
+      .from("requests")
+      .select("user_id")
+      .eq("id", requestId)
+      .single();
+
+    if (reqError || !req) {
+      return;
+    }
+
+    // OPTIMIZATION: Single query to check for existing direct chat (both combinations)
+    const { data: existingChat, error: chatError } = await supabase
+      .from("chat_rooms")
+      .select("id")
+      .eq("room_type", "direct")
+      .or(`and(buyer_id.eq.${req.user_id},seller_id.eq.${user.id}),and(buyer_id.eq.${user.id},seller_id.eq.${req.user_id})`)
+      .single();
+
+    if (existingChat && !chatError) {
+      setSelectedRoom(existingChat.id);
+      window.history.replaceState({}, "", `/chat?roomId=${existingChat.id}`);
+      return;
+    }
+
+    // Create new direct chat
+    const { data: newRoom, error } = await supabase
+      .from("chat_rooms")
+      .insert({
+        request_id: requestId,
+        room_type: "direct",
+        buyer_id: req.user_id,
+        seller_id: user.id
+      })
+      .select("id")
+      .single();
+
+    if (!error && newRoom) {
+      await fetchChatRooms();
+      setSelectedRoom(newRoom.id);
+      window.history.replaceState({}, "", `/chat?roomId=${newRoom.id}`);
+    }
+  };
+
+  ensureRoom();
+}, [location.search, user, fetchChatRooms]);
+
+
+  useEffect(() => {
+    if (!selectedRoom) return;
+    setMessages([]);
+    
+    const timer = setTimeout(() => {
+      fetchMessages();
+      const cleanup = subscribeToMessages();
+      return cleanup;
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [selectedRoom, fetchMessages, subscribeToMessages]);
+
+  useEffect(() => {
+    if (!user || chatRooms.length === 0) return;
+    const roomIds = new Set(chatRooms.map(r => r.id));
+    
+    const channel = supabase
+      .channel('messages-all')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload: any) => {
+          const msg = payload.new as { chat_room_id: string; created_at: string; sender_id: string; content: string };
+          
+          if (!roomIds.has(msg.chat_room_id)) {
+            return;
+          }
+          
+          setLatestByRoom(prev => ({ ...prev, [msg.chat_room_id]: msg.created_at }));
+          setLatestPreviewByRoom(prev => ({ ...prev, [msg.chat_room_id]: { text: msg.content || '', created_at: msg.created_at, sender_id: msg.sender_id } }));
+          setUnreadCounts(prev => {
+            const current = prev[msg.chat_room_id] || 0;
+            if (msg.sender_id !== user?.id && selectedRoom !== msg.chat_room_id) {
+              return { ...prev, [msg.chat_room_id]: current + 1 };
+            }
+            return prev;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user, chatRooms, selectedRoom]);
+
+  useEffect(() => {
+    return () => {
+      selectedFiles.forEach(file => {
+        if (file.preview) {
+          URL.revokeObjectURL(file.preview);
+        }
+      });
+    };
+  }, [selectedFiles]);
+
+  // ===== RENDER LOGIC =====
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="container mx-auto px-4 py-6">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <MessageCircle className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground">Please sign in to access chat</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="chat-layout bg-background">
+      <Navigation />
+      
+      <div className="chat-content px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+          
+          {/* LEFT PANEL: Chat Rooms List */}
+          <Card className="lg:col-span-1 chat-panel">
+            <CardHeader className="flex-shrink-0 border-b">
+              <CardTitle className="flex items-center space-x-2">
+                <MessageCircle className="w-5 h-5" />
+                <span>Conversations</span>
+              </CardTitle>
+            </CardHeader>
+            
+            <div className="chat-scrollable">
+              {loading ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  Loading conversations...
+                </div>
+              ) : chatRooms.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  <MessageCircle className="w-12 h-12 mx-auto mb-2 text-muted-foreground/50" />
+                  <p>No conversations yet</p>
+                  <p className="text-sm">Join a request to start chatting</p>
+                </div>
+              ) : (
+                <div className="h-full overflow-y-auto chat-scrollbar">
+                  <div className="space-y-1 p-1">
+                    {memoizedChatRooms.map((room) => {
+                      const otherUser = room.room_type === 'group' 
+                        ? { display_name: room.room_name || room.requests?.title || 'Group Chat', avatar_url: '' }
+                        : (user?.id === room.buyer_id ? room.seller_profile : room.buyer_profile);
+                      return (
+                        <div
+                          key={room.id}
+                          onClick={() => { setSelectedRoom(room.id); markRoomAsRead(room.id); }}
+                          className={`p-4 cursor-pointer hover:bg-muted transition-colors rounded-lg ${
+                            selectedRoom === room.id ? 'bg-muted' : ''
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={otherUser?.avatar_url} />
+                              <AvatarFallback>
+                                {otherUser?.display_name?.charAt(0)?.toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">
+                                {otherUser?.display_name}
+                                {room.room_type === 'group' && room.participants && (
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    ({room.participants.length} members)
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {latestPreviewByRoom[room.id]?.text ?? room.requests.title}
+                              </p>
+                            </div>
+                            {unreadCounts[room.id] > 0 && (
+                              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                                {unreadCounts[room.id] > 99 ? '99+' : unreadCounts[room.id]}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* RIGHT PANEL: Chat Messages */}
+          <Card className="lg:col-span-2 chat-panel">
+            {!user ? (
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <MessageCircle className="w-16 h-16 text-muted-foreground/50 mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Authentication Required</h3>
+                <p className="text-muted-foreground mb-4">
+                  Please sign in to participate in group chats and send messages.
+                </p>
+                <Button onClick={() => window.location.href = '/auth'}>
+                  Sign In
+                </Button>
+              </div>
+            ) : selectedRoom ? (
+              <>
+                <CardHeader className="flex-shrink-0 border-b">
+                  <CardTitle className="flex items-center justify-between">
+                    <span>
+                      {(() => {
+                        const room = chatRooms.find(r => r.id === selectedRoom);
+                        const otherUser = room ? (room.room_type === 'group' 
+                          ? { display_name: room.room_name || room.requests?.title || 'Group Chat', avatar_url: '' }
+                          : (user?.id === room.buyer_id ? room.seller_profile : room.buyer_profile)) : null;
+                        return otherUser?.display_name || 'Chat';
+                      })()}
+                    </span>
+                    {(() => {
+                      const room = chatRooms.find(r => r.id === selectedRoom);
+                      if (!room || !user) return null;
+                      const myMessages = messages.filter(m => m.sender_id === user.id);
+                      if (myMessages.length === 0) return null;
+                      const lastMyMessage = myMessages[myMessages.length - 1];
+                      const otherLastRead = user.id === room.buyer_id ? room.seller_last_read_at : room.buyer_last_read_at;
+                      const isRead = otherLastRead ? new Date(otherLastRead) >= new Date(lastMyMessage.created_at) : false;
+                      return (
+                        <span className="text-xs text-muted-foreground">
+                          {isRead ? '✓✓ Read' : '✓ Sent'}
+                        </span>
+                      );
+                    })()}
+                  </CardTitle>
+                </CardHeader>
+                
+                <div className="chat-panel">
+                  <div 
+                    ref={messagesContainerRef}
+                    onScroll={handleScroll}
+                    className="chat-scrollable relative"
+                  >
+                    <div className="p-4 space-y-4">
+                      {memoizedMessages.map((message) => (
+                        <div
+                          key={message.id}
+                          className={`flex ${
+                            message.sender_id === user?.id ? 'justify-end' : 'justify-start'
+                          }`}
+                        >
+                          <div
+                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                              message.sender_id === user?.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-foreground'
+                            }`}
+                          >
+                            {/* Attachment Display */}
+                            {message.attachment_url && (
+                              <div className="mb-2">
+                                {message.attachment_type === 'image' ? (
+                                  <img 
+                                    src={message.attachment_url} 
+                                    alt="Attachment" 
+                                    className="max-w-full rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => window.open(message.attachment_url, '_blank')}
+                                  />
+                                ) : (
+                                  <div className="flex items-center space-x-2 p-2 bg-black/20 rounded-lg">
+                                    {getFileIcon(message.attachment_type || 'other')}
+                                    <span className="text-xs truncate">{message.attachment_name}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Message Text */}
+                            {message.message && (
+                              <p className="text-sm">{message.message}</p>
+                            )}
+                            
+                            <p className="text-xs opacity-70 mt-1">
+                              {new Date(message.created_at).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={messagesEndRef} />
+                    </div>
+                    
+                    {showScrollToBottom && (
+                      <Button
+                        onClick={() => scrollToBottom('smooth')}
+                        size="icon"
+                        className="absolute bottom-4 right-4 h-10 w-10 rounded-full shadow-lg bg-primary hover:bg-primary/90"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Message Input with Emoji and File Support */}
+                  <div className="chat-input-container p-4">
+                    {/* Selected Files Preview */}
+                    {selectedFiles.length > 0 && (
+                      <div className="mb-3 p-3 bg-muted/50 rounded-lg border border-border">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">Attachments ({selectedFiles.length})</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedFiles([])}
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center space-x-2 p-2 bg-background rounded border">
+                              {file.preview ? (
+                                <img src={file.preview} alt="Preview" className="w-8 h-8 object-cover rounded" />
+                              ) : (
+                                <div className="w-8 h-8 bg-muted rounded flex items-center justify-center">
+                                  {getFileIcon(file.type)}
+                                </div>
+                              )}
+                              <span className="text-xs truncate flex-1">{file.file.name}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeFile(index)}
+                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <form onSubmit={sendMessage} className="flex items-end space-x-2">
+                      {/* Emoji Picker */}
+                      <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                          >
+                            <Smile className="w-5 h-5" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="start">
+                          <div className="p-3 border-b">
+                            <h4 className="font-medium">Select Emoji</h4>
+                          </div>
+                          <div className="p-3 max-h-60 overflow-y-auto">
+                            <div className="grid grid-cols-10 gap-2">
+                              {emojis.map((emoji, index) => (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  className="w-8 h-8 text-lg hover:bg-muted rounded transition-colors"
+                                  onClick={() => addEmoji(emoji)}
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                      
+                      {/* File Attachment */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 text-muted-foreground hover:text-foreground"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Paperclip className="w-5 h-5" />
+                      </Button>
+                      
+                      {/* Hidden file input */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileSelect}
+                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                      />
+                      
+                      {/* Message Input */}
+                      <div className="flex-1">
+                        <Input
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Type a message..."
+                          className="min-h-[40px] resize-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              sendMessage(e);
+                            }
+                          }}
+                        />
+                      </div>
+                      
+                      {/* Send Button */}
+                      <Button 
+                        type="submit" 
+                        size="icon"
+                        className="h-10 w-10 bg-primary hover:bg-primary/90"
+                        disabled={(!newMessage.trim() && selectedFiles.length === 0) || isUploading}
+                      >
+                        {isUploading ? (
+                          <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <CardContent className="flex-1 flex items-center justify-center text-center">
+                <div>
+                  <MessageCircle className="w-16 h-16 mx-auto mb-4 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">
+                    Select a conversation to start chatting
+                  </p>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ChatPage;
